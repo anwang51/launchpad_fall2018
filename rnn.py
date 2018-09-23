@@ -8,9 +8,10 @@ import math
 class Net:
 
 	def __init__(self):
-		self.num_classes = 32
-		self.output_size = 32
-		self.state_size = 32
+		self.num_classes = 33
+		self.output_size = 33
+		self.state_size = 300
+		self.truncated_backprop_length = 5
 		self.char_count = 700
 		self.sess = tf.Session()
 		self._build_model()
@@ -18,41 +19,41 @@ class Net:
 		self.outputs = []
 
 	def _build_model(self):
-		self.x = tf.placeholder(tf.float32, [1, self.num_classes])
-		self.y_truth = tf.placeholder(tf.float32, [1, self.num_classes])
-		self.current_state = tf.Variable(np.zeros((1,self.state_size)), dtype=tf.float32)
+		self.x = tf.placeholder(tf.float32, [self.truncated_backprop_length, self.num_classes])
+		self.y_truth = tf.placeholder(tf.float32, [self.truncated_backprop_length, self.num_classes])
+		self.current_state = tf.Variable(np.zeros((self.truncated_backprop_length,self.state_size)), dtype=tf.float32)
 
 		self.W_xh = tf.Variable(np.random.rand(self.num_classes, self.state_size), dtype=tf.float32)
 		self.W_hh = tf.Variable(np.random.rand(self.state_size, self.state_size),dtype=tf.float32)
-		self.b_h = tf.Variable(np.zeros((1,self.state_size)), dtype=tf.float32)
+		self.b_h = tf.Variable(np.zeros((self.truncated_backprop_length,self.state_size)), dtype=tf.float32)
 
 		self.W_hy = tf.Variable(np.random.rand(self.state_size, self.num_classes),dtype=tf.float32)
-		self.b_y = tf.Variable(np.zeros((1,self.num_classes)), dtype=tf.float32)
+		self.b_y = tf.Variable(np.zeros((self.truncated_backprop_length,self.num_classes)), dtype=tf.float32)
 
 		self.next_state = tf.tanh(tf.matmul(self.x, self.W_xh) + tf.matmul(self.current_state, self.W_hh) + self.b_h)
 		self.output = tf.nn.softmax(tf.matmul(self.next_state, self.W_hy) + self.b_y)
-		# print(self.output)
-		# print(self.y_truth)
+		# print(self.output.shape)
+		# print(self.y_truth.shape)
 
 		self.losses = tf.losses.softmax_cross_entropy(onehot_labels=self.y_truth,logits=self.output)
 		self.total_loss = tf.reduce_mean(self.losses)
-		self.optimizer = tf.train.AdagradOptimizer(0.3).minimize(self.total_loss)
+		# self.optimizer = tf.train.AdagradOptimizer(0.3).minimize(self.total_loss)
 		# self.loss = tf.losses.(self.output, self.y_truth)
-		# self.optimizer = tf.train.AdamOptimizer().minimize(self.loss)
+		self.optimizer = tf.train.AdamOptimizer().minimize(self.total_loss)
 
 		# DO NOT TOUCH BELOW
 		self.sess.run(tf.global_variables_initializer())
 
 	def update(self, x_mat, y_mat):
-		return self.sess.run([self.losses, self.optimizer, self.output], {self.x: x_mat, self.y_truth: y_mat})
+		return self.sess.run([self.losses, self.optimizer, self.output,self.next_state], {self.x: x_mat, self.y_truth: y_mat})
 
 	def one_hotter(self, letter):
 		self.alphabets = {'a' : 0, 'b': 1, 'c':2, 'd':3, 'e':4, 'f':5, 'g':6, 'h':7, 'i':8, 'j':9, 'k':10, 'l':11,
 		'm':12, 'n':13, 'o':14, 'p':15, 'q':16, 'r':17, 's':18, 't':19, 'u':20, 'v':21, 'w':22, 'x':23, 'y':24,
 		'z': 25, '.': 26, '!':27, '?':28, ' ':29, ',':30, '%':31}
 		if letter in self.alphabets:
-			result = np.zeros(32)
-			result[self.alphabets[letter]] = 1
+			result = np.zeros(33) # leave the first empty for nonsense/padding
+			result[self.alphabets[letter]+1] = 1
 			return result
 			# return tf.one_hot(alphabets[letter], 32, on_value=1, off_value=0).eval(session=self.sess)
 
@@ -82,22 +83,35 @@ class Net:
 			x_mat[:letter_vectors.shape[0]-1,:letter_vectors.shape[1]] = letter_vectors[:-1]
 			y_mat = np.zeros([self.char_count,self.num_classes])
 			y_mat[:letter_vectors.shape[0]-1,:letter_vectors.shape[1]] = letter_vectors[1:]
-			for i in range(self.char_count):
-				loss, _, output = self.update([x_mat[i]], [y_mat[i]])
+			for e in range(self.char_count//self.truncated_backprop_length):
+				start_idx = e * self.truncated_backprop_length
+				end_idx = start_idx + self.truncated_backprop_length
+				# print(start_idx,end_idx)
+				loss, _, output, self.current_state = self.update(x_mat[start_idx:end_idx], y_mat[start_idx:end_idx])
 			stopchar = False
-			# if counter > 0 and counter % 1000 == 0:
-			# 	self.training_loss.append(loss)
-			# 	self.outputs.append(output)
+			# print(i)
+			if i > 0 and i % 66 == 0:
+				print(output,y_mat[start_idx:end_idx])
+				self.training_loss.append(loss)
+				self.outputs.append(output)
 
 	def evaluate(self, x, count):
 		letter = self.sess.run(self.output, {self.x: x})
-		character = list(self.alphabets.keys())[list(self.alphabets.values()).index(letter.argmax())]
+		character = list(self.alphabets.keys())[list(self.alphabets.values()).index(letter[self.truncated_backprop_length-1].argmax())]
 		print(character, end='')
 		if character != "%" and count < 500:
-			return self.evaluate(self.sess.run(self.output, {self.x: x}), count + 1)
+			# print(np.vstack([x[1:],self.one_hotter(character)]).shape)
+			return self.evaluate(np.vstack([x[1:],self.one_hotter(character)]), count + 1)
 		else:
 			print()
 
 # n = 10000
 # x_mat = [2*math.pi*(float(i) / n) for i in range(n)]
 sin_pred = Net()
+a = []
+a.append(sin_pred.one_hotter('h'))
+a.append(sin_pred.one_hotter('e'))
+a.append(sin_pred.one_hotter('l'))
+a.append(sin_pred.one_hotter('l'))
+a.append(sin_pred.one_hotter('o'))
+a = np.array(a)
