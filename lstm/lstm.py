@@ -8,14 +8,14 @@ import pdb
 class Net:
 
 	def __init__(self):
-		self.input_size = 1
+		self.input_size = 100
 		self.output_size = 1
 		self.hidden_size = 128
 		self.sess = tf.Session()
 		self.alphabet_size = 75
-		self.shakespeare_data = open("shakespeare.txt").read()
+		self.shakespeare_data = open("processed_shakespeare.txt").read()
 		self.TEXT_SIZE = len(self.shakespeare_data)
-		self.AVG_TEXT_SIZE = 100
+		self.AVG_TEXT_SIZE = self.input_size
 		self._build_model()
 		self.training_loss = []
 		self.outputs = []
@@ -28,8 +28,8 @@ class Net:
 		multi_lstm_cells = tf.contrib.rnn.MultiRNNCell(cells=[lstm_cell_1, lstm_cell_2] , state_is_tuple=True)
 		self.y_hat, final_state = tf.nn.dynamic_rnn(multi_lstm_cells, self.x, dtype=tf.float32)
 		# self.y_hat = tf.layers.dense(outputs, self.output_size, activation=tf.tanh)
-		self.loss = tf.nn.softmax_cross_entropy_with_logits(self.y_hat, self.y_truth)
-		self.optimizer = tf.train.AdamOptimizer().minimize(self.loss)
+		self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.y_truth, logits=self.y_hat)
+		self.optimizer = tf.train.RMSPropOptimizer().minimize(self.loss)
 		# DO NOT TOUCH BELOW
 		self.sess.run(tf.global_variables_initializer())
 
@@ -41,15 +41,17 @@ class Net:
 		while True:
 			x_mat = []
 			y_mat = []
-			sample_size = int(random.gauss(self.AVG_TEXT_SIZE, 20))
 			for _ in range(32):
 				start = random.randint(0, self.TEXT_SIZE-self.AVG_TEXT_SIZE)
-				x_mat.append(self.shakespeare_data[start : start+sample_size])
+				hot_x = one_hotter(self.shakespeare_data[start : start+self.AVG_TEXT_SIZE])
+				x_mat.append(hot_x)
 			x_mat = np.array(x_mat)
 			y_mat = np.array(x_mat)
 			counter += 1
 			loss, _, output = self.update(x_mat, y_mat)
-			if counter > 0 and counter % 1000 == 0:
+			if counter > 0 and counter % 50 == 0:
+				loss = np.mean([np.mean(l) for l in loss])
+				print("Loss: %d", loss)
 				self.training_loss.append(loss)
 				self.outputs.append(output)
 
@@ -59,6 +61,16 @@ class Net:
 alphabet_encoding = {
 	32:0, 33:1, 46:2, 44:3, 39:4, 63:5, 59:6, 10:7, 58:8, 45:9, 38:10, 91:11, 93:12
 }
+
+def one_hotter(s):
+	temp = []
+	for c in s:
+		z = np.zeros(75)
+		ind = alphabet_encoding[ord(c)]
+		z[ind] = 1
+		temp.append(np.array(z))
+	temp = np.array(temp)
+	return temp
 
 upper_case_offset = 65
 lower_case_offset = 97
@@ -71,5 +83,4 @@ numbers_offset = 48
 numbers = 65
 for i in range(10):
 	alphabet_encoding[numbers_offset + i] = numbers + i
-
 lstm = Net()
