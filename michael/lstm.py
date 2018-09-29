@@ -12,7 +12,7 @@ class LSTM:
         self.output_size = 32 #out size
         self.state_size = 256 #hidden size
         self.num_layers = 2
-        self.batch_size = 64 #'sentences' to look at at once
+        self.batch_size = 64 #'sentences' to look at
         self.steps = 100 #chars in a sentence ? might need to be higher, variable padding
         self.checkpoint_dir = "./checkpoint"
         self.sess = tf.Session()
@@ -43,7 +43,7 @@ class LSTM:
     def one_hotter(self):
         data_ = ""
         with open('shakespeare.txt', 'r') as f:
-            data_ += f.read()
+            data_ += f.read() # SHOULD'VE STRIPPED
         data_ = data_.lower()
         letter_vectors = []
         for l in data_:
@@ -110,7 +110,7 @@ class LSTM:
                 counter += 1
                 if np.mod(counter, 10) == 1:  # log every 10 iters
                     print("Epoch: [%2d] [%4d/%4d], loss: %.8f" \
-                        % (epoch, i+1, batch_idxs, loss))
+                        % (counter//batch_idxs, counter, batch_idxs, loss))
                 if np.mod(counter, 100) == 1:  # log every 100 iters
                     print(self.talk())
                 if np.mod(counter, 500) == 2:
