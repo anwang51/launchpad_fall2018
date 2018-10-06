@@ -41,13 +41,12 @@ class Net:
 		counter = 0 
 		while True:
 			x_mat = []
-			y_mat = []
 			for _ in range(64):
 				start = random.randint(0, self.TEXT_SIZE-self.AVG_TEXT_SIZE)
 				hot_x = one_hotter(self.shakespeare_data[start : start+self.AVG_TEXT_SIZE])
 				x_mat.append(hot_x)
 			x_mat = np.array(x_mat)
-			y_mat = np.array(x_mat)
+			y_mat = np.append(x_mat[:,1:], np.zeros((x_mat.shape[0], 1, 75)), axis=1)
 			counter += 1
 			loss, _, output = self.update(x_mat, y_mat)
 			if counter > 0 and counter % 50 == 0:
