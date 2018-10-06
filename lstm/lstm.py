@@ -26,10 +26,11 @@ class Net:
 		lstm_cell_1 = tf.contrib.rnn.LSTMCell(self.alphabet_size)
 		lstm_cell_2 = tf.contrib.rnn.LSTMCell(self.alphabet_size)
 		multi_lstm_cells = tf.contrib.rnn.MultiRNNCell(cells=[lstm_cell_1, lstm_cell_2] , state_is_tuple=True)
-		self.y_hat, final_state = tf.nn.dynamic_rnn(multi_lstm_cells, self.x, dtype=tf.float32)
+		layer1, final_state = tf.nn.dynamic_rnn(multi_lstm_cells, self.x, dtype=tf.float32)
+		self.y_hat = tf.layers.dense(layer1, 75, activation=tf.nn.softmax)
 		# self.y_hat = tf.layers.dense(outputs, self.output_size, activation=tf.tanh)
-		self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.y_truth, logits=self.y_hat)
-		self.optimizer = tf.train.RMSPropOptimizer().minimize(self.loss)
+		self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.y_truth, logits=self.y_hat))
+		self.optimizer = tf.train.RMSPropOptimizer(0.03).minimize(self.loss)
 		# DO NOT TOUCH BELOW
 		self.sess.run(tf.global_variables_initializer())
 
@@ -41,7 +42,7 @@ class Net:
 		while True:
 			x_mat = []
 			y_mat = []
-			for _ in range(32):
+			for _ in range(64):
 				start = random.randint(0, self.TEXT_SIZE-self.AVG_TEXT_SIZE)
 				hot_x = one_hotter(self.shakespeare_data[start : start+self.AVG_TEXT_SIZE])
 				x_mat.append(hot_x)
@@ -50,12 +51,17 @@ class Net:
 			counter += 1
 			loss, _, output = self.update(x_mat, y_mat)
 			if counter > 0 and counter % 50 == 0:
-				loss = np.mean([np.mean(l) for l in loss])
 				print("Loss: %d", loss)
+				print(interpret(output))
 				self.training_loss.append(loss)
 				self.outputs.append(output)
 
 	def evaluate(self, x):
+		return self.sess.run(self.y_hat, {self.x: x})
+
+	def evaluate_text(self, text):
+		x = one_hotter(text)
+		x = np.array([x])
 		return self.sess.run(self.y_hat, {self.x: x})
 
 alphabet_encoding = {
@@ -83,4 +89,17 @@ numbers_offset = 48
 numbers = 65
 for i in range(10):
 	alphabet_encoding[numbers_offset + i] = numbers + i
+
+alphabet_decoding = {}
+for key in alphabet_encoding:
+	alphabet_decoding[alphabet_encoding[key]] = key
+
+def interpret(y_hat):
+	y_hat = y_hat[0]
+	final_str = ""
+	for one_hot in y_hat:
+		alpha_encoded = np.argmax(one_hot)
+		final_str += chr(alphabet_decoding[alpha_encoded])
+	return final_str
+
 lstm = Net()
