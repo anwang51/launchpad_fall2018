@@ -64,10 +64,9 @@ class LSTM:
         init_value = np.zeros((self.batch_size, self.num_layers * 2 * self.state_size))
         return self.sess.run([self.total_loss, self.optimizer],{self.x: xbatch, self.y_truth: ybatch, self.init_state: init_value})
 
-    def talk(self):
-        test_word = 'the'
+    def talk(self, test_word):
         state = np.zeros((self.num_layers * 2 * self.state_size))
-        for i in range(3):
+        for i in range(len(test_word)):
             letter_vector = np.zeros((1,32))
             letter_vector[0,self.alphabets[test_word[i]]] = 1
             out, state = self.evaluate(letter_vector,state)
@@ -112,7 +111,7 @@ class LSTM:
                     print("Epoch: [%2d] [%4d/%4d], loss: %.8f" \
                         % (counter//batch_idxs, counter, batch_idxs, loss))
                 if np.mod(counter, 100) == 1:  # log every 100 iters
-                    print(self.talk())
+                    print(self.talk('the'))
                 if np.mod(counter, 500) == 2:
                     self.save(self.checkpoint_dir, counter)
 
