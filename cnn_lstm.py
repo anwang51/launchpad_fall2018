@@ -81,5 +81,37 @@ class LSTM:
 
 		self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.003),0.9).minimize(self.total_loss)
 
+	def train(self, x):
+        num_timesteps = len(x)
+        x = np.reshape(x, (num_timesteps, self.num_notes, 1))
+        y = np.append(x[1:], np.zeros((1, self.num_notes, 1)), axis=0)
 
+        counter = 0 
+        while True: 
+            x_mat, y_mat = [], []
+            for _ in range(self.batch_size):
+                x_mat.append(x)
+                y_mat.append(y)
+            x_mat = np.array(x_mat)
+            y_mat = np.array(y_mat)
+            loss, output = self.sess.run([self.total_loss, self.final_outputs], {self.x: x_mat, self.y_truth: y_mat, 
+                self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
+            counter +=1
+            if counter %1000 == 0:
+                print("Loss: %d", loss)
+
+    def evaluate(self, x, length):
+    	# IN PROGRESS
+        x = np.array([np.reshape(x, (num_timesteps, self.num_notes, 1))])
+        # assume output is same size as input
+        init_output, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: x, 
+            self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
+        y = init_output
+        last_note = np.array([init_output[0][-1]])
+        for _ in range(length):
+            last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note, 
+            self.init_state: state)
+            y = np.append(y, last_note[0], axis=0)
+        return y
+        
 model = LSTM()
