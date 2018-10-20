@@ -93,7 +93,7 @@ class CNN:
     def evaluate(self, x):
         self.training = False
         logits = self.sess.run(self.logits, {self.x: x})
-        return logits, max(range(len(logits)), key=lambda i:logits[i])
+        return logits, np.argmax(logits)
 
     def get_training_data(self):
         mnist = tf.contrib.learn.datasets.load_dataset("mnist")
