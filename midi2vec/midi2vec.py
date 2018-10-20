@@ -31,5 +31,5 @@ def vectorize(midi, granularity):
                 frames.append(np.array(current_frame))
         if event.type == 'note_on' or event.type == 'note_off':
             # Taking advantage of fact that note_off has velocity of 0
-            current_frame[event.note] = event.velocity / 128.0
-    return np.row_stack(frames) # might be better as column_stack?
+            current_frame[event.note] = event.velocity / 127.0
+    return np.vstack(frames)
