@@ -81,7 +81,7 @@ class Net:
 		self.sess.run([self.loss, self.optimizer], {self.x: x_mat, self.y_truth: y_mat})
 
 	def train(self):
-		counter = 0 
+		counter = 0
 		while True:
 			counter += 1
 			loss, _ = self.update(x_mat, y_mat)
@@ -94,4 +94,3 @@ class Net:
 n = 10000
 x_mat = [2*math.pi*(float(i) / n) for i in range(n)]
 sin_pred = Net()
-
