@@ -1,103 +1,96 @@
 import tensorflow as tf
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
 import random
 import math
-# import pdb
+import pdb
+
+
 
 class Net:
 
 	def __init__(self):
-		self.num_classes = 32
-		self.output_size = 32
-		self.state_size = 32
-		self.char_count = 700
+		self.input_length = 128
+		self.one_hot_size = 0 # set later in encode_data()
+		self.text_len = 5000 # also set later
+		self.encode_data()
+		self.h_size = 256
+		self.hidden_size = 256
 		self.sess = tf.Session()
-		self._build_model()
+		self._init_weights()
+		self.build_model()
 		self.training_loss = []
 		self.outputs = []
+		self.num_letters = 2000
 
-	def _build_model(self):
-		self.x = tf.placeholder(tf.float32, [1, self.num_classes])
-		self.y_truth = tf.placeholder(tf.float32, [1, self.num_classes])
-		self.current_state = tf.Variable(np.zeros((1,self.state_size)), dtype=tf.float32)
+	def _init_weights(self):
+		# self.x = tf.placeholder(tf.float32, [self.text_len, self.one_hot_size])
+		self.xs = [tf.placeholder(tf.float32, [1, self.one_hot_size]) for _ in range(self.text_len)]
+		self.y_truth = tf.placeholder(tf.float32, [self.text_len, self.one_hot_size])
 
-		self.W_xh = tf.Variable(np.random.rand(self.num_classes, self.state_size), dtype=tf.float32)
-		self.W_hh = tf.Variable(np.random.rand(self.state_size, self.state_size),dtype=tf.float32)
-		self.b_h = tf.Variable(np.zeros((1,self.state_size)), dtype=tf.float32)
+		self.W1 = tf.Variable(np.random.rand(self.one_hot_size + self.h_size, self.hidden_size), dtype=tf.float32)
+		self.b1 = tf.Variable(np.zeros((1, self.hidden_size)), dtype=tf.float32)
 
-		self.W_hy = tf.Variable(np.random.rand(self.state_size, self.num_classes),dtype=tf.float32)
-		self.b_y = tf.Variable(np.zeros((1,self.num_classes)), dtype=tf.float32)
+		self.W2 = tf.Variable(np.random.rand(self.hidden_size, self.hidden_size), dtype=tf.float32)
+		self.b2 = tf.Variable(np.zeros((1, self.hidden_size)), dtype=tf.float32)
 
-		self.next_state = tf.tanh(tf.matmul(self.x, self.W_xh) + tf.matmul(self.current_state, self.W_hh) + self.b_h)
-		self.output = tf.nn.softmax(tf.matmul(self.next_state, self.W_hy) + self.b_y)
-		# print(self.output)
-		# print(self.y_truth)
-
-		self.losses = tf.losses.softmax_cross_entropy(onehot_labels=self.y_truth,logits=self.output)
-		self.total_loss = tf.reduce_mean(self.losses)
-		self.optimizer = tf.train.AdagradOptimizer(0.3).minimize(self.total_loss)
-		# self.loss = tf.losses.(self.output, self.y_truth)
-		# self.optimizer = tf.train.AdamOptimizer().minimize(self.loss)
+		self.W3 = tf.Variable(np.random.rand(self.hidden_size, self.one_hot_size + self.h_size), dtype=tf.float32)
+		self.b3 = tf.Variable(np.zeros((1, self.one_hot_size + self.h_size)), dtype=tf.float32)
 
 		# DO NOT TOUCH BELOW
 		self.sess.run(tf.global_variables_initializer())
 
-	def update(self, x_mat, y_mat):
-		return self.sess.run([self.losses, self.optimizer, self.output], {self.x: x_mat, self.y_truth: y_mat})
+	def encode_data(self):
+		contents = open("shakespeare.txt").read().lower()[:5000]
+		chars = list(set(contents))
+		chars.sort()
+		self.one_hot_size = len(chars) + 1
+		self.text_len = len(contents)
+		char_dict = {}
+		for i, c in enumerate(chars):
+			char_dict[c] = i
+		contents_ind = np.array([char_dict[c] for c in contents])
+		self.x_mat = np.zeros((len(contents), len(chars) + 1))
+		self.x_mat[np.arange(len(contents)), contents_ind] = 1
+		self.y_mat = np.append(x_mat[1:], np.array([0 for _ in range(len(chars))] + [1]))
 
-	def one_hotter(self, letter):
-		self.alphabets = {'a' : 0, 'b': 1, 'c':2, 'd':3, 'e':4, 'f':5, 'g':6, 'h':7, 'i':8, 'j':9, 'k':10, 'l':11,
-		'm':12, 'n':13, 'o':14, 'p':15, 'q':16, 'r':17, 's':18, 't':19, 'u':20, 'v':21, 'w':22, 'x':23, 'y':24,
-		'z': 25, '.': 26, '!':27, '?':28, ' ':29, ',':30, '%':31}
-		if letter in self.alphabets:
-			result = np.zeros(32)
-			result[self.alphabets[letter]] = 1
-			return result
-			# return tf.one_hot(alphabets[letter], 32, on_value=1, off_value=0).eval(session=self.sess)
+	def build_model(self):
+
+		h = tf.convert_to_tensor(np.array([np.zeros(self.h_size)]), dtype=tf.float32)
+		prediction = []
+		# for x_char in tf.unstack(self.x, axis=0):
+		for x_char in self.xs:
+
+			# pdb.set_trace()
+			x_final = tf.concat([x_char, h], 1)
+			layer1 = tf.nn.relu(tf.matmul(x_final, self.W1) + self.b1)
+			layer2 = tf.nn.relu(tf.matmul(layer1, self.W2) + self.b2)
+			layer3 = tf.nn.relu(tf.matmul(layer2, self.W3) + self.b3)
+			combined_out = self.sess.run(layer3)
+			if len(combined_out) != (self.one_hot_size + self.h_size):
+				raise Error("sizes no match you dumb")
+			self.y_hat = [tf.nn.softmax(i) for i in combined_out[0:self.one_hot_size]]
+			prediction.append(np.array(y_hat))
+			h = combined_out[self.one_hot_size:]
+		labels = tf.unstack(self.y_truth, axis=0)
+		losses = [tf.nn.softmax_cross_entropy_with_logits(logits, labels) for logits, labels in zip(prediction, labels)]
+		self.loss = tf.reduce_mean(losses)
+		self.optimizer = tf.train.AdamOptimizer().minimize(loss)
+
+	def update(self, x_mat, y_mat):
+		self.sess.run([self.loss, self.optimizer], {self.x: x_mat, self.y_truth: y_mat})
 
 	def train(self):
-		text = open('shakespeare.txt','r')
-		shakespeare = []
-		for line in text:
-			shakespeare.append(line.replace('\n','').strip())
-		stopchar = False
-		index = 0 # what line
-		for i in range(396*1000):
-			letter_vectors = []
-			while not stopchar:
-				letters = list(shakespeare[index])
-				for letter in letters:
-					a = self.one_hotter(letter)
-					if a is not None:
-						letter_vectors.append(a)
-					if letter in ['.','?','!']:
-						stopchar = True
-						letter_vectors.append(self.one_hotter("%"))
-				index += 1
-			if (i+1) % 396 == 0:
-				index = 0
-			letter_vectors = np.array(letter_vectors)
-			x_mat = np.zeros([self.char_count,self.num_classes])
-			x_mat[:letter_vectors.shape[0]-1,:letter_vectors.shape[1]] = letter_vectors[:-1]
-			y_mat = np.zeros([self.char_count,self.num_classes])
-			y_mat[:letter_vectors.shape[0]-1,:letter_vectors.shape[1]] = letter_vectors[1:]
-			for i in range(self.char_count):
-				loss, _, output = self.update([x_mat[i]], [y_mat[i]])
-			stopchar = False
-			# if counter > 0 and counter % 1000 == 0:
-			# 	self.training_loss.append(loss)
-			# 	self.outputs.append(output)
+		counter = 0
+		while True:
+			counter += 1
+			loss, _ = self.update(x_mat, y_mat)
+			if counter > 0 and counter % 1000 == 0:
+				self.training_loss.append(loss)
 
-	def evaluate(self, x, count):
-		letter = self.sess.run(self.output, {self.x: x})
-		character = list(self.alphabets.keys())[list(self.alphabets.values()).index(letter.argmax())]
-		print(character, end='')
-		if character != "%" and count < 500:
-			return self.evaluate(self.sess.run(self.output, {self.x: x}), count + 1)
-		else:
-			print()
+	def evaluate(self, x):
+		return self.sess.run(self.y_hat, {self.x: x})
 
-# n = 10000
-# x_mat = [2*math.pi*(float(i) / n) for i in range(n)]
+n = 10000
+x_mat = [2*math.pi*(float(i) / n) for i in range(n)]
 sin_pred = Net()
