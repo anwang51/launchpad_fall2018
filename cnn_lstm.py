@@ -100,12 +100,18 @@ class LSTM:
             if counter %1000 == 0:
                 print("Loss: %d", loss)
 
-    def evaluate(self, x):
+    def evaluate(self, x, length):
     	# IN PROGRESS
         x = np.array([np.reshape(x, (num_timesteps, self.num_notes, 1))])
-        y = []
-        output, final_state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: x, 
+        # assume output is same size as input
+        init_output, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: x, 
             self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
-
-
+        y = init_output
+        last_note = np.array([init_output[0][-1]])
+        for _ in range(length):
+            last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note, 
+            self.init_state: state)
+            y = np.append(y, last_note[0], axis=0)
+        return y
+        
 model = LSTM()
