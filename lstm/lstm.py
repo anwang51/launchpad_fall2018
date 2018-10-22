@@ -44,7 +44,6 @@ class Net:
 		counter = 0 
 		while True:
 			x_mat = []
-			y_mat = []
 			for _ in range(64):
 				start = random.randint(0, self.TEXT_SIZE-self.AVG_TEXT_SIZE-1)
 				hot_x = one_hotter(self.shakespeare_data[start : start+self.AVG_TEXT_SIZE])

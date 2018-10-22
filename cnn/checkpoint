@@ -1,0 +1,6 @@
+model_checkpoint_path: "/home/ubuntu/cnn/saves"
+all_model_checkpoint_paths: "~/michelle/deconvnet"
+all_model_checkpoint_paths: "~/cnn/deconvnet-1"
+all_model_checkpoint_paths: "ckpts/deconvnet-1"
+all_model_checkpoint_paths: "/home/ubuntu/cnn/"
+all_model_checkpoint_paths: "/home/ubuntu/cnn/saves"
