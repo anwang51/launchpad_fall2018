@@ -101,8 +101,8 @@ class Deconv:
 			counter += 1
 
 	def evaluate(self, image):
-		_, _, out = self.update([image])
-		return out
+		out = self.sess.run([self.final_outputs], {self.x: np.array([image])})
+		return out[0]
 
 folder = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michelle/"
 
@@ -117,19 +117,36 @@ def load_images():
 			imgs.append(img)
 	return imgs
 
+train_x = load_images()
+model = Deconv()
+
 bob = skio.imread(folder + "bob.jpg")
 bob = skt.resize(bob, (96, 128))
 bob = skco.rgb2gray(bob)
 bob = np.expand_dims(bob, 2)
 
-train_x = load_images()
-model = Deconv()
+y_bob = model.evaluate(bob)[0, :, :, 0]
+bob = bob[:, :, 0]
+
+sophia = skio.imread(folder + "sophia.jpg")
+sophia = skt.resize(sophia, (96, 128))
+sophia = skco.rgb2gray(sophia)
+sophia = np.expand_dims(sophia, 2)
+
+y_sophia = model.evaluate(sophia)[0, :, :, 0]
+sophia = sophia[:, :, 0]
+
+jonathan = skio.imread(folder + "jonathan.jpg")
+jonathan = skt.resize(jonathan, (96, 128))
+jonathan = skco.rgb2gray(jonathan)
+jonathan = np.expand_dims(jonathan, 2)
+
+y_jonathan = model.evaluate(jonathan)[0, :, :, 0]
+jonathan = jonathan[:, :, 0]
+
 x = train_x[30]
 original = x[:, :, 0]
 y = model.evaluate(x)[0, :, :, 0]
-
-y_bob = model.evaluate(bob)[0, :, :, 0]
-bob = bob[:, :, 0]
 
 def display(img):
 	skio.imshow(img)
