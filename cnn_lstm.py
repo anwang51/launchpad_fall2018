@@ -23,11 +23,11 @@ class LSTM:
 
 	def _build_model(self):
 		self.x = tf.placeholder(tf.float32,[None, None, self.num_notes, 1])
-		self.y_truth = tf.placeholder(tf.float32, [None, None, self.num_notes, 1])
+		self.y_truth = self.x
 
 		conv1 = tf.layers.conv2d(
 			inputs=self.x,
-			filters=32,
+			filters=128,
 			kernel_size=[3,3],
 			padding="same",
 			activation=tf.nn.relu
@@ -39,41 +39,59 @@ class LSTM:
 			)
 		conv2 = tf.layers.conv2d(
 			inputs=pool1,
-			filters=64,
-			kernel_size=[5,5],
+			filters=128,
+			kernel_size=[3,3],
 			padding="same",
 			activation=tf.nn.relu
 			)
 		pool2 = tf.layers.max_pooling2d(
 			inputs=conv2,
+			pool_size=[2, 2],
+			strides=[self.stride_length, self.stride_length]
+			)
+		conv3 = tf.layers.conv2d(
+			inputs=pool2,
+			filters=128,
+			kernel_size=[3,3],
+			padding="same",
+			activation=tf.nn.relu
+			)
+		pool3 = tf.layers.max_pooling2d(
+			inputs=conv3,
 			pool_size=[2,2],
 			strides=[self.stride_length, self.stride_length]
 			)
-		pool2_flat = tf.layers.Flatten()(pool2)
-		pool2_flat = tf.expand_dims(pool2_flat, 2)
 
-		self.init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * self.state_size])
-		self.lstm_cells = [tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
-		self.lstm = tf.contrib.rnn.MultiRNNCell(self.lstm_cells,state_is_tuple=False)
-		# Iteratively compute output of recurrent network
-		outputs, self.new_state = tf.nn.dynamic_rnn(self.lstm, pool2_flat, initial_state=self.init_state, dtype=tf.float32)
-		self.W_hy = tf.Variable(tf.random_normal((self.state_size, self.num_notes),stddev=0.01),dtype=tf.float32)
-		self.b_y = tf.Variable(tf.random_normal((self.output_size,), stddev=0.01), dtype=tf.float32)
-		net_output = tf.matmul(tf.reshape(outputs, [-1, self.state_size]), self.W_hy) + self.b_y
 
-		lstm_output = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], self.output_size))
-		reshaped = tf.reshape(lstm_output, [-1, self.num_notes/(self.stride_length * self.stride_length), -1, 1])
-		
-		deconv1 = tf.nn.conv2d_transpose(reshaped,
-			tf.placeholder(tf.float32, shape=[3, 3, 1, 1]),
-			tf.stack([tf.shape(self.x)[0]/2, tf.shape(self.x)[1]/2, 1, 1]),
-			[1, 2, 2, 1],
-			padding="SAME")
-		self.final_outputs = tf.nn.conv2d_transpose(deconv1,
-			tf.placeholder(tf.float32, shape=[3, 3, 1, 1]),
-			tf.stack([tf.shape(self.x)[0], tf.shape(self.x)[1], 1, 1]),
-			[1, 2, 2, 1],
-			padding="SAME")
+		deconv1 = tf.layers.conv2d_transpose(pool3,
+			filters=128,
+			kernel_size=[5,5],
+			padding="same",
+			strides=[self.stride_length, self.stride_length],
+			activation=tf.nn.relu
+			)
+		deconv2 = tf.layers.conv2d_transpose(deconv1,
+			filters=128,
+			kernel_size=[3,3],
+			padding="same",
+			strides=[self.stride_length, self.stride_length],
+			activation=tf.nn.relu
+			)		
+		self.final_outputs = tf.layers.conv2d_transpose(deconv2,
+			filters=1,
+			kernel_size=[3,3],
+			padding="same",
+			strides=[self.stride_length, self.stride_length],
+			activation=tf.nn.relu
+			)
+
+		self.losses = tf.losses.mean_squared_error(self.y_truth, self.final_outputs)
+		self.total_loss = tf.reduce_mean(self.losses)
+
+		self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.001),0.995).minimize(self.total_loss)
+
+
+
 		self.lstm_last_state = np.zeros((self.num_layers * 2 * self.state_size))
 
 		self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=net_output,labels=tf.reshape(self.y_truth, [-1, self.output_size]))
@@ -110,7 +128,7 @@ class LSTM:
         last_note = np.array([init_output[0][-1]])
         for _ in range(length):
             last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note, 
-            self.init_state: state)
+            self.init_state: state})
             y = np.append(y, last_note[0], axis=0)
         return y
         

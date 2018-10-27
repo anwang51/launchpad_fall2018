@@ -144,6 +144,14 @@ jonathan = np.expand_dims(jonathan, 2)
 y_jonathan = model.evaluate(jonathan)[0, :, :, 0]
 jonathan = jonathan[:, :, 0]
 
+michelle2 = skio.imread(folder + "michelle2.jpg")
+michelle2 = skt.resize(michelle2, (96, 128))
+michelle2 = skco.rgb2gray(michelle2)
+michelle2 = np.expand_dims(michelle2, 2)
+
+y_michelle2 = model.evaluate(michelle2)[0, :, :, 0]
+michelle2 = michelle2[:, :, 0]
+
 x = train_x[30]
 original = x[:, :, 0]
 y = model.evaluate(x)[0, :, :, 0]
