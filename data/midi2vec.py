@@ -1,13 +1,16 @@
-# midi2vec.py
-
 """
 Usage:
 vectorize('./myfile.mid', 16) -> list of vectors for each track, qtized to 16th
 """
 
 # see also https://github.com/callaunchpad/JazzImprov/blob/master/midi_dto_csv/midi_test.ipynb
-import mido
 import numpy as np
+import os
+import sys
+import matplotlib.pyplot as plt
+import mido
+import pypianoroll
+import time
 
 def num_frames(ticks, ticks_per_beat, note_denominator):
     # 1 beat = 1 quarter
@@ -57,7 +60,7 @@ def trim_silence(frames):
     if first_nonzero_index is not None and last_nonzero_index is not None:
         return frames[first_nonzero_index:last_nonzero_index+1]
 
-def split_by_silence(frames, min_len=16):
+def split_silence(frames, min_len=16):
     """
     >>> arr = np.array([[1], [0], [0], [2], [0], [3], [4], [5], [0], [0], [0], [6], [0]])
     >>> [list(x) for x in split_by_silence(arr, min_len=2)]
@@ -90,14 +93,3 @@ def play(vectorized):
         time.sleep(0.1)
         for note in range(len(row)):
             out.send(mido.Message('note_off'), note=note)
-
-def get_ext(ext):
-    def get_files(dir):
-        files = []
-        for sub in [os.path.join(dir, sub) for sub in os.listdir(dir)]:
-            if os.path.isdir(sub):
-                files += get_files(sub)
-            elif os.path.splitext(sub)[1] == ext:
-                files.append(sub)
-        return files
-    return get_files
