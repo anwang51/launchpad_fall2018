@@ -99,13 +99,15 @@ class LSTM:
 			strides=[self.stride_length, self.stride_length],
 			activation=tf.nn.relu
 			)
-		#pdb.set_trace()
 		self.lstm_last_state = np.zeros((self.num_layers * 2 * self.state_size))
 
-		self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.final_outputs,labels=self.y_truth) #tf.reshape(self.y_truth, [-1, self.output_size]))
+		self.losses = tf.losses.mean_squared_error(self.final_outputs,self.y_truth) #tf.reshape(self.y_truth, [-1, self.output_size]))
 		self.total_loss = tf.reduce_mean(self.losses)
 
-		self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.003),0.9).minimize(self.total_loss)
+		self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.005),0.995)
+		self.variables = tf.trainable_variables()
+		self.gradients = self.optimizer.compute_gradients(self.total_loss, self.variables)
+		self.optimizer.apply_gradients(self.gradients)
 
 	def train(self, x):
 		num_timesteps = len(x)
@@ -120,11 +122,11 @@ class LSTM:
 				y_mat.append(y)
 			x_mat = np.array(x_mat)
 			y_mat = np.array(y_mat)
-			loss, output = self.sess.run([self.total_loss, self.final_outputs], {self.x: x_mat, self.y_truth: y_mat, 
-				self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
+			loss, losses, gradients = self.sess.run([self.total_loss, self.losses, self.gradients],
+				{self.x: x_mat, self.y_truth: y_mat, self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
 			counter +=1
-			if counter %1000 == 0:
-				print("Loss: %d", loss)
+			if counter % 1 == 0:
+				print("Loss: %f" % (loss))
 
 	def evaluate(self, x, length):
 		# IN PROGRESS
@@ -145,4 +147,4 @@ def rand_track(num_beats):
 
 if __name__ == "__main__":
 	model = LSTM()
-	model.train(rand_track(64))
+	model.train(rand_track(128))
