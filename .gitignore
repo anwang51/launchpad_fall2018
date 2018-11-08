@@ -1,6 +1,12 @@
+temp.mid
 .vscode/*
 .DS_Store
+<<<<<<< HEAD
 __pycache__/*
 __pycache__
 *.pyc
 *.pyo
+=======
+lpd_5_cleansed
+
+>>>>>>> 111f81e979b6705bcbc41671cc3e93ef49e6b855

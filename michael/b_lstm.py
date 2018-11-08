@@ -38,7 +38,7 @@ class BLSTM:
         # Iteratively compute output of recurrent network
         outputs, (states_f, states_w) = tf.nn.bidirectional_dynamic_rnn(self.lstm_f, self.lstm_b, inputs=self.x, dtype=tf.float32)
         # concat both the outputs and put into a dense layer
-        # self.bi_final_state = tf.concat([states_f, states_w], 1) # not very useful in a bi-lstm – because we aren't feeding it to another time step, the model sees all of the sentence at once.
+        # self.bi_final_state = tf.concat([states_f, states_w], 1) # not very useful in a bi-lstm for prediction – because we aren't feeding it to another time step, the model sees all of the sentence at once.
         forward_output, backward_output = outputs[0][:, :-1, :], outputs[1][:, 1:, :] # get rid of last and first predict for fwd, bwd respectively.
         combined_output = tf.concat([forward_output, backward_output], 1)
         self.W_hy = tf.Variable(tf.random_normal((self.state_size, self.num_classes), stddev=0.01), dtype=tf.float32)
