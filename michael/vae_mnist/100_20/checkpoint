@@ -1,0 +1,3 @@
+model_checkpoint_path: "vae.model-40150"
+all_model_checkpoint_paths: "vae.model-39600"
+all_model_checkpoint_paths: "vae.model-40150"

@@ -41,13 +41,13 @@ class Music:
         params_mu = tf.matmul(bi_final_state, self.W_mu) + self.b_mu
         params_sig = tf.matmul(bi_final_state, self.W_sig) + self.b_sig
         # borrowed from https://github.com/hwalsuklee/tensorflow-mnist-VAE/blob/master/vae.py
-        mu = params_mu[:, self.latent_dim:]
+        mu = params_mu[:, :self.latent_dim]
         # The standard deviation must be positive.
         sigma =  1e-6 + tf.nn.softplus(params_sig[:, self.latent_dim:])
         # reparametrize the outputs from the encoder
         self.z = mu + sigma * tf.random_normal(tf.shape(mu), 0, 1, dtype=tf.float32)
 		self.conduct_init = tf.layers.dense(self.z, self.latent_dim, activation=tf.tanh)
-        # Hierarchical RNN as the decoder – 2 RNNs stacked
+        # Hierarchical RNN as the decoder – 2 RNNs stacked – (also use seq2seq for attention?)
             # Conductor RNN - 2 layer 1024, 512 dims, vector c of lenght U (length of song), then output to shared fully-connected dense w/ tanh
 
             # Decoder RNN - 2 layer 1024 units per layer, output to 128 w/ softmax output layer, concat previous state like in normal rnn but also with vector c[n]
