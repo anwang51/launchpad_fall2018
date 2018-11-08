@@ -84,7 +84,7 @@ def split_silence(frames, min_len=16):
         split_frames.append(frames[left:right])
     else:
         split_frames.append(frames[left:])
-    return split_frames
+    return [frames for frames in split_frames if not len(frames) == 0]
     
 def play(vectorized):
     for row in vectorized:
