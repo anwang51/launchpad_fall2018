@@ -12,19 +12,44 @@ import mido
 import pypianoroll
 import time
 
+def load_npz(path):
+    try:
+        return pypianoroll.load(path)
+    except Exception as e:
+        return None
+
+def load_midi(path):
+    try:
+        return mido.MidiFile(path)
+    except Exception as e:
+        return None
+
 def num_frames(ticks, ticks_per_beat, note_denominator):
     # 1 beat = 1 quarter
     return int((note_denominator/4 * ticks) // ticks_per_beat)
 
-def should_parse_as_note(event, drum_mode):
-    if event.type != 'note_on' and event.type != 'note_off':
-        return False
-    if drum_mode:
-        return event.channel == 9
-    return event.channel != 9
+def is_note(event):
+    return event.type == 'note_on' and event.type == 'note_off'
 
-def vectorize_path(path, frame_dur=16, drum_mode=False, merge_tracks=False):
-    midi = mido.MidiFile(path)
+def is_drum(note):
+    return is_note(note) and note.channel == 9
+
+def is_program_change(event):
+    return event.type == 'program_change'
+
+def program(track):
+    for event in track:
+        if is_program_change(event):
+            return event.program
+
+def programs(track):
+    all_programs = set()
+    for event in track:
+        if is_program_change(event):
+            all_programs.add(event.program)
+    return all_programs
+
+def vectorize_midi(midi, frame_dur=16, drum_mode=False, merge_tracks=False):
     if merge_tracks:
         return vectorize_track(mido.merge_tracks(midi.tracks), midi.ticks_per_beat, frame_dur, drum_mode)
     else:
@@ -39,7 +64,7 @@ def vectorize_track(track, ticks_per_beat, frame_dur=16, drum_mode=False, trim=T
             frames_to_add = num_frames(event.time, ticks_per_beat, frame_dur)
             for _ in range(frames_to_add):
                 frames.append(np.array(current_frame))
-        if should_parse_as_note(event, drum_mode):
+        if is_note(event) and (drum_mode == is_drum(event)):
             current_frame[event.note] = event.velocity / 127.0
     if trim:
         frames = trim_silence(frames)
@@ -86,8 +111,8 @@ def split_silence(frames, min_len=16):
         split_frames.append(frames[left:])
     return [frames for frames in split_frames if not len(frames) == 0]
     
-def play(vectorized):
-    for row in vectorized:
+def play_vector(vector):
+    for row in vector:
         for note, vel in enumerate(row):
             out.send(mido.Message('note_on'), note=note, velocity=int(128*vel))
         time.sleep(0.1)
