@@ -3,6 +3,8 @@ import pypianoroll
 import mido
 import midi_proc
 
+## FUNCTIONS to USE: --> iter_lpd5_dataset and iter_midi_dataset
+
 def iter_dir(dir, ext=None, ext_set=None, recursive=True):
     for path in (os.path.join(dir, sub) for sub in os.listdir(dir)):
         if os.path.isdir(path) and recursive:
@@ -26,7 +28,7 @@ def iter_lpd5_file(path, track_name='Piano', split_len=None):
             if split_len:
                 yield from midi_proc.split_silence(track.pianoroll, split_len=split_len)
             else:
-                yield track.pianoroll
+                if track.pianoroll.size > 0: yield track.pianoroll
 
 def iter_lpd5_dataset(root_dir, track_name='Piano', split_len=None):
     # track_name should be one of lpd5_valid_tracks
@@ -37,12 +39,13 @@ def iter_lpd5_paths(paths, track_name='Piano', split_len=None):
     for path in paths:
         yield from iter_lpd5_file(path, track_name, split_len)
 
-def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None):
+# does not support drum tracks right now.
+def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None, frame_dur=16):
     midi = midi_proc.load_midi(path)
     if midi:
         for track in midi.tracks:
             if midi_proc.program(track) in allowed_programs:
-                vectorized = midi_proc.vectorize_track(track, midi.ticks_per_beat)
+                vectorized = midi_proc.vectorize_track(track, midi.ticks_per_beat, frame_dur=frame_dur)
                 if vectorized is not None:
                     if split_len:
                         yield from midi_proc.split_silence(vectorized, split_len)

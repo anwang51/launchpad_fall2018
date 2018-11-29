@@ -119,7 +119,11 @@ def play_vector(vector, delay=0.1):
         out = mido.open_output("play_vector", virtual=True)
     for row in vector:
         for note, vel in enumerate(row):
-            out.send(mido.Message('note_on', note=note, velocity=int(128*vel)))
+            out.send(mido.Message('note_on', note=note, velocity=int(127*vel)))
         time.sleep(delay)
         for note in range(len(row)):
             out.send(mido.Message('note_off', note=note))
+
+def plot(vector):
+    plt.imshow(np.transpose(vector))
+    plt.show()
