@@ -6,42 +6,52 @@ import random
 class Music:
 
     def __init__(self):
-        self.output_size = 30
-		self.num_notes = 128
-        self.num_layers = 2
-        self.batch_size = 64
-        self.global_dropout = 0.6
+        self.output_size = 128 # output size # of possible notes
+		self.num_notes = 128 # input size
+        self.num_layers = 2 # also for the b_lstm, can delete later
+        self.batch_size = 512 # can be changed depending on training speed
+        self.state_size = 2048 # hidden layer of features for the blstm
+        # implement weight decay
+        self.decay_rate = .9999
         self.learning_rate = 0.001
-        self.checkpoint_dir = "./checkpoint"
+        self.latent_dim = 512
+        self.global_dropout = 0.6 # not final
+        self.checkpoint_dir = "./music_checkpoint"
         self.sess = tf.Session()
         self.build_model()
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
 
     def build_model(self):
+        # Bi-directional RNN (LSTM) as the encoder
         self.x = tf.placeholder(tf.float32,[None,None, self.num_classes])
         self.y_truth = tf.placeholder(tf.float32, [None, None, self.num_classes])
-        # self.init_state_f = tf.placeholder(tf.float32, [None, self.num_layers * 2 * self.state_size])
-        # self.init_state_b = tf.placeholder(tf.float32, [None, self.num_layers * 2 * self.state_size])
-        # shouldn't be needed in a b_lstm
         self.lstm_cells_f = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.nn.leaky_relu), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
         self.lstm_cells_b = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.nn.leaky_relu), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
         self.lstm_f = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_f,state_is_tuple=False)
         self.lstm_b = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_b,state_is_tuple=False)
-        # self.cell = tf.nn.rnn_cell.DropoutWrapper(self.lstm, output_keep_prob=self.global_dropout)
         # Iteratively compute output of recurrent network
         outputs, (states_f, states_w) = tf.nn.bidirectional_dynamic_rnn(self.lstm_f, self.lstm_b, inputs=self.x, dtype=tf.float32)
-        # concat both the outputs and put into a dense layer
-        # self.bi_final_state = tf.concat([states_f, states_w], 1) # not very useful in a bi-lstm – because we aren't feeding it to another time step, the model sees all of the sentence at once.
-        forward_output, backward_output = outputs[0][:, :-1, :], outputs[1][:, 1:, :] # get rid of last and first predict for fwd, bwd respectively.
-        combined_output = tf.concat([forward_output, backward_output], 1)
-        self.W_hy = tf.Variable(tf.random_normal((self.state_size, self.num_classes), stddev=0.01), dtype=tf.float32)
-        self.b_y = tf.Variable(tf.random_normal((self.output_size,), stddev=0.01), dtype=tf.float32)
-        net_output = tf.matmul(tf.reshape(combined_output, [-1, self.state_size]), self.W_hy) + self.b_y
+        self.bi_final_state = tf.concat([states_f, states_w], 1)
+        self.W_mu = tf.Variable(tf.random_normal((self.state_size, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
+        self.b_mu = tf.Variable(tf.random_normal((self.latent_dim * 2,), stddev=0.01), dtype=tf.float32)
+        self.W_sig = tf.Variable(tf.random_normal((self.state_size, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
+        self.b_sig = tf.Variable(tf.random_normal((self.latent_dim * 2,), stddev=0.01), dtype=tf.float32)
+        # params_mu = tf.matmul(tf.reshape(combined_output, [-1, self.state_size]), self.W_mu) + self.b_mu
+        params_mu = tf.matmul(bi_final_state, self.W_mu) + self.b_mu
+        params_sig = tf.matmul(bi_final_state, self.W_sig) + self.b_sig
+        # borrowed from https://github.com/hwalsuklee/tensorflow-mnist-VAE/blob/master/vae.py
+        mu = params_mu[:, :self.latent_dim]
+        # The standard deviation must be positive.
+        sigma =  1e-6 + tf.nn.softplus(params_sig[:, self.latent_dim:])
+        # reparametrize the outputs from the encoder
+        self.z = mu + sigma * tf.random_normal(tf.shape(mu), 0, 1, dtype=tf.float32)
+		self.conduct_init = tf.layers.dense(self.z, self.latent_dim, activation=tf.tanh)
+        # Hierarchical RNN as the decoder – 2 RNNs stacked – (also use seq2seq for attention?)
+            # Conductor RNN - 2 layer 1024, 512 dims, vector c of lenght U (length of song), then output to shared fully-connected dense w/ tanh
 
-        self.final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], self.output_size))
-        # take the correct index corresponding to back and forwards
-        self.lstm_last_state = np.zeros((self.num_layers * 2 * self.state_size))
+            # Decoder RNN - 2 layer 1024 units per layer, output to 128 w/ softmax output layer, concat previous state like in normal rnn but also with vector c[n]
+
         self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=net_output,labels=tf.reshape(self.y_truth, [-1, self.output_size]))
         self.total_loss = tf.reduce_mean(self.losses)
 

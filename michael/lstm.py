@@ -81,7 +81,7 @@ class LSTM:
         data = self.one_hotter()
         counter = 0
 
-        # could_load, checkpoint_counter = self.load(self.checkpoint_dir)
+        # could_load, counter = self.load(self.checkpoint_dir)
         # if could_load:
         #     counter = checkpoint_counter
         #     print(" [*] Load SUCCESS")
