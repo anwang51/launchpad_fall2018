@@ -70,15 +70,16 @@ class LSTM:
 		self.lstm_cells = [tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
 		self.lstm = tf.contrib.rnn.MultiRNNCell(self.lstm_cells,state_is_tuple=False)
 		# Iteratively compute output of recurrent network
+		pdb.set_trace()
 		outputs, self.new_state = tf.nn.dynamic_rnn(self.lstm, pool3_flat, initial_state=self.init_state, dtype=tf.float32)
 		self.W_hy = tf.Variable(tf.random_normal((self.state_size, self.num_notes),stddev=0.01),dtype=tf.float32)
 		self.b_y = tf.Variable(tf.random_normal((self.output_size,), stddev=0.01), dtype=tf.float32)
 		net_output = tf.matmul(tf.reshape(outputs, [-1, self.state_size]), self.W_hy) + self.b_y
 
 		lstm_output = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], self.output_size))
-		reshaped = tf.reshape(lstm_output, [-1, self.num_notes/(self.stride_length * self.stride_length), -1, 1])
+		reshaped = tf.reshape(lstm_output, [-1, int(self.num_notes/(self.stride_length * self.stride_length)), -1, 1])
 
-		deconv1 = tf.layers.conv2d_transpose(pool3,
+		deconv1 = tf.layers.conv2d_transpose(reshaped,
 			filters=128,
 			kernel_size=[5,5],
 			padding="same",
@@ -101,7 +102,7 @@ class LSTM:
 			)
 		self.lstm_last_state = np.zeros((self.num_layers * 2 * self.state_size))
 
-		self.losses = tf.losses.mean_squared_error(self.final_outputs,self.y_truth) #tf.reshape(self.y_truth, [-1, self.output_size]))
+		self.losses = tf.losses.mean_squared_error(self.final_outputs, self.y_truth) #tf.reshape(self.y_truth, [-1, self.output_size]))
 		self.total_loss = tf.reduce_mean(self.losses)
 
 		self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.005),0.995)
@@ -122,8 +123,8 @@ class LSTM:
 				y_mat.append(y)
 			x_mat = np.array(x_mat)
 			y_mat = np.array(y_mat)
-			loss, losses, gradients = self.sess.run([self.total_loss, self.losses, self.gradients],
-				{self.x: x_mat, self.y_truth: y_mat, self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
+			init_state = np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)
+			loss, losses, variables = self.sess.run([self.total_loss, self.losses, self.variables], {self.x: x_mat, self.init_state: init_state})
 			counter +=1
 			if counter % 1 == 0:
 				print("Loss: %f" % (loss))
