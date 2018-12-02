@@ -3,10 +3,10 @@ Usage:
 
 1. Download and unzip lpd5_cleansed dataset from
 https://drive.google.com/uc?id=1XJ648WDMjRilbhs4hE3m099ZQIrJLvUB&export=download
-2. Get testing and training iterators
+2. Get testing (10%) and training (90%) iterators
 >>> test, train = test_train_sets_lpd5("/path/to/lpd5/folder", track_name='Piano')
 3. Use
->>> next(train)
+>>> next(train) --> returns 2d array with each row = note vels at a given timestep from 0 to 127
 4. Profit
 
 """
@@ -94,10 +94,11 @@ def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_
     both sets. Returns [test_set_iterator, train_set_iterator].
     See iter_lpd5_file for what the other parameters do
     """
-    paths = random.shuffle(get_all_paths(root_dir, '.npz'))
+    paths = get_all_paths(root_dir, '.npz')
+    random.shuffle(paths)
     split_point = len(paths)//10
     test, train = paths[:split_point], paths[split_point:]
-    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in test, train]
+    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in [test, train]]
 
 # # does not support drum tracks right now.
 # def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None, frame_dur=16):
