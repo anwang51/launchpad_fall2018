@@ -1,11 +1,21 @@
 """
 Usage:
-If you just want to use lpd5 dataset directly, call
-iter_lpd5_
+
+1. Download and unzip lpd5_cleansed dataset from
+https://drive.google.com/uc?id=1XJ648WDMjRilbhs4hE3m099ZQIrJLvUB&export=download
+2. Get testing and training iterators
+>>> test, train = test_train_sets_lpd5("/path/to/lpd5/folder", track_name='Piano')
+3. Use
+>>> next(train)
+4. Profit
+
 """
 import os
+import random
+
 import pypianoroll
 import mido
+
 import midi_proc
 
 def iter_dir(dir, ext=None, ext_set=None, recursive=True):
@@ -77,6 +87,17 @@ def iter_lpd5_paths(paths, track_name='Piano', beat_resolution=4, split_len=None
     """
     for path in paths:
         yield from iter_lpd5_file(path, track_name, beat_resolution, split_len)
+
+def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_len=None):
+    """
+    Partition the lpd5 set into 90% train, 10% test and yield iterators over
+    both sets. Returns [test_set_iterator, train_set_iterator].
+    See iter_lpd5_file for what the other parameters do
+    """
+    paths = random.shuffle(get_all_paths(root_dir, '.npz'))
+    split_point = len(paths)//10
+    test, train = paths[:split_point], paths[split_point:]
+    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in test, train]
 
 # # does not support drum tracks right now.
 # def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None, frame_dur=16):
