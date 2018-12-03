@@ -16,7 +16,6 @@ NOte:
 import os
 import random
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import pypianoroll
 import mido

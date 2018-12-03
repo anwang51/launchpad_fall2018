@@ -3,7 +3,7 @@ import os
 import collections
 import json
 import numpy as np
-import data.data_io as data_io
+import data2.data_io as data_io
 
 class DumbModel:
     def train(self, batch):
