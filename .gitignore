@@ -5,4 +5,5 @@ __pycache__/*
 *.pyc
 *.pyo
 lpd_5_cleansed
-data/lpd5/*
+data/lpd_5/*
+michael/data/lpd_5/*
