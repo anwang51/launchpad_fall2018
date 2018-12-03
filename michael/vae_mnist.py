@@ -12,6 +12,7 @@ import pdb
 training_size = 6400 # number of total training samples
 
 root_dir = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michael/"
+root_dir = "/home/ubuntu/launchpad_fall2018/michael/"
 sys.path.append(root_dir + 'data') # local path to data_io.py directory
 
 class vae_mnist():
@@ -25,7 +26,7 @@ class vae_mnist():
         self.checkpoint_dir = './vae_mnist'
         self.model_dir = "%s_%s" % (self.batch_size, self.n_z)
         self.sess = tf.Session()
-        self.lr = 0.001
+        self.lr = 0.00005
         self.build_model()
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
@@ -45,7 +46,7 @@ class vae_mnist():
 
         # self.generation_loss = -tf.reduce_sum(self.images * tf.log(1e-10 + self.generated) + (1-self.images) * tf.log(1e-10 + 1 - self.generated),1) #marginal_likelihood
         self.generation_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.images, logits=self.generated)
-        self.latent_loss = -0.5 * tf.reduce_sum(tf.square(self.mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1,1)
+        self.latent_loss = 0.5 * tf.reduce_sum(tf.square(self.mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1,1)
         self.cost = tf.reduce_mean(self.generation_loss + self.latent_loss)
         self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.cost)
 
