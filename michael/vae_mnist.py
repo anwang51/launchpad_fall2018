@@ -31,64 +31,67 @@ class vae_mnist():
         self.saver = tf.train.Saver()
 
     def build_model(self):
-        self.images = tf.placeholder(tf.float32, [None, self.input_size])
-        # image_matrix = tf.reshape(self.images,[-1, 28, 28, 1])
-        self.mu, sigma = self.encoder(self.images)
+        with tf.device('/gpu:0'):
+            self.images = tf.placeholder(tf.float32, [None, self.input_size])
+            # image_matrix = tf.reshape(self.images,[-1, 28, 28, 1])
+            self.mu, sigma = self.encoder(self.images)
 
-        # reparametrize the outputs from the encoder
-        z = self.mu + sigma * tf.random_normal([self.batch_size,self.n_z], 0, 1, dtype=tf.float32)
+            # reparametrize the outputs from the encoder
+            z = self.mu + sigma * tf.random_normal([self.batch_size,self.n_z], 0, 1, dtype=tf.float32)
 
-        #decoder
-        self.generated = self.decoder(z)
-        # print(self.generated.get_shape())
+            #decoder
+            self.generated = self.decoder(z)
+            # print(self.generated.get_shape())
 
-        # self.generation_loss = -tf.reduce_sum(self.images * tf.log(1e-10 + self.generated) + (1-self.images) * tf.log(1e-10 + 1 - self.generated),1) #marginal_likelihood
-        self.generation_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.images, logits=self.generated)
-        self.latent_loss = -0.5 * tf.reduce_sum(tf.square(self.mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1,1)
-        self.cost = tf.reduce_mean(self.generation_loss + self.latent_loss)
-        self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.cost)
+            # self.generation_loss = -tf.reduce_sum(self.images * tf.log(1e-10 + self.generated) + (1-self.images) * tf.log(1e-10 + 1 - self.generated),1) #marginal_likelihood
+            self.generation_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.images, logits=self.generated)
+            self.latent_loss = -0.5 * tf.reduce_sum(tf.square(self.mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1,1)
+            self.cost = tf.reduce_mean(self.generation_loss + self.latent_loss)
+            self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.cost)
 
     # encoder
     def encoder(self, x):
-        # w0 = tf.get_variable('w0', [28, self.n_hidden], initializer=w_init
-        w0 = tf.Variable(tf.random_normal((x.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32) # equivalent?
-        b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h0 = tf.matmul(x, w0) + b0
-        h0 = tf.nn.leaky_relu(h0)
-        # can add dropout
+        with tf.device('/gpu:0'):
+            # w0 = tf.get_variable('w0', [28, self.n_hidden], initializer=w_init
+            w0 = tf.Variable(tf.random_normal((x.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32) # equivalent?
+            b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h0 = tf.matmul(x, w0) + b0
+            h0 = tf.nn.leaky_relu(h0)
+            # can add dropout
 
-        w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
-        b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h1 = tf.matmul(h0, w1) + b1
-        h1 = tf.nn.leaky_relu(h1)
+            w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
+            b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h1 = tf.matmul(h0, w1) + b1
+            h1 = tf.nn.leaky_relu(h1)
 
-        w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.n_z * 2), stddev=0.01), dtype=tf.float32)
-        b_out = tf.Variable(tf.random_normal((self.n_z * 2,), stddev=0.01), dtype=tf.float32)
-        params = tf.matmul(h1, w_out) + b_out
+            w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.n_z * 2), stddev=0.01), dtype=tf.float32)
+            b_out = tf.Variable(tf.random_normal((self.n_z * 2,), stddev=0.01), dtype=tf.float32)
+            params = tf.matmul(h1, w_out) + b_out
 
-        mu = params[:, :self.n_z]
-        # The standard deviation must be positive.
-        sigma =  1e-6 + tf.nn.softplus(params[:, self.n_z:])
+            mu = params[:, :self.n_z]
+            # The standard deviation must be positive.
+            sigma =  1e-6 + tf.nn.softplus(params[:, self.n_z:])
 
-        return mu, sigma
+            return mu, sigma
 
     def decoder(self, z):
-        w0 = tf.Variable(tf.random_normal((z.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
-        b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h0 = tf.matmul(z, w0) + b0
-        h0 = tf.nn.leaky_relu(h0)
-        # can add dropout
+        with tf.device('/gpu:0'):
+            w0 = tf.Variable(tf.random_normal((z.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
+            b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h0 = tf.matmul(z, w0) + b0
+            h0 = tf.nn.leaky_relu(h0)
+            # can add dropout
 
-        w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
-        b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h1 = tf.matmul(h0, w1) + b1
-        h1 = tf.nn.leaky_relu(h1)
+            w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
+            b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h1 = tf.matmul(h0, w1) + b1
+            h1 = tf.nn.leaky_relu(h1)
 
-        w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.input_size), stddev=0.01), dtype=tf.float32)
-        b_out = tf.Variable(tf.random_normal((self.input_size,), stddev=0.01), dtype=tf.float32)
-        y = tf.sigmoid(tf.matmul(h1, w_out) + b_out)
+            w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.input_size), stddev=0.01), dtype=tf.float32)
+            b_out = tf.Variable(tf.random_normal((self.input_size,), stddev=0.01), dtype=tf.float32)
+            y = tf.sigmoid(tf.matmul(h1, w_out) + b_out)
 
-        return y
+            return y
 
     def train(self, xmat):
         self.training = True
