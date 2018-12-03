@@ -6,14 +6,16 @@ import matplotlib
 matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import sys
-sys.path.append('/Users/AShi/Desktop/launchpad_fall2018/data') # local path to data_io.py directory
-import data_io
+from data import data_io
 import itertools
+import pdb
 training_size = 6400 # number of total training samples
+
+root_dir = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michael/"
+sys.path.append(root_dir + 'data') # local path to data_io.py directory
 
 class vae_mnist():
     def __init__(self):
-        self.x_mat = self.get_training_data()
         self.n_samples = training_size
 
         self.input_size = 256*128 # 256 timesteps * 128 notes per step
@@ -23,6 +25,7 @@ class vae_mnist():
         self.checkpoint_dir = './vae_mnist'
         self.model_dir = "%s_%s" % (self.batch_size, self.n_z)
         self.sess = tf.Session()
+        self.lr = 0.001
         self.build_model()
         self.sess.run(tf.global_variables_initializer())
         self.saver = tf.train.Saver()
@@ -39,10 +42,11 @@ class vae_mnist():
         self.generated = self.decoder(z)
         # print(self.generated.get_shape())
 
-        self.generation_loss = -tf.reduce_sum(self.images * tf.log(1e-10 + self.generated) + (1-self.images) * tf.log(1e-10 + 1 - self.generated),1) #marginal_likelihood
-        self.latent_loss = 0.5 * tf.reduce_sum(tf.square(self.mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1,1)
+        # self.generation_loss = -tf.reduce_sum(self.images * tf.log(1e-10 + self.generated) + (1-self.images) * tf.log(1e-10 + 1 - self.generated),1) #marginal_likelihood
+        self.generation_loss = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.images, logits=self.generated)
+        self.latent_loss = -0.5 * tf.reduce_sum(tf.square(self.mu) + tf.square(sigma) - tf.log(tf.square(sigma)) - 1,1)
         self.cost = tf.reduce_mean(self.generation_loss + self.latent_loss)
-        self.optimizer = tf.train.AdamOptimizer(0.001).minimize(self.cost)
+        self.optimizer = tf.train.AdamOptimizer(self.lr).minimize(self.cost)
 
     # encoder
     def encoder(self, x):
@@ -86,7 +90,7 @@ class vae_mnist():
 
         return y
 
-    def train(self):
+    def train(self, xmat):
         self.training = True
         counter = 0
         # VALIDATION AND SCIPY DISPLAY FUNCTIONS COMMENTED OUT FOR NOW
@@ -107,7 +111,7 @@ class vae_mnist():
 
         for epoch in range(2000):
             # np.random.shuffle(self.x_mat)
-            x_iter = self.grouper(self.batch_size, self.x_mat) # batches of input songs
+            x_iter = self.grouper(self.batch_size, xmat) # batches of input songs
             for i in range(total_batch):
                 counter += 1
                 offset = (i * self.batch_size) % (self.n_samples)
@@ -178,7 +182,6 @@ class vae_mnist():
         # return train_data, train_labels
 
         # NEW TRAINING DATA FROM LPD_5
-        test, train = data_io.test_train_sets_lpd5("/Users/AShi/Desktop/lpd_5", track_name='Piano', split_len=256)
         return itertools.islice(train, training_size)
 
     def grouper(self, n, iterable): # chunks and returns iterators of size n from iterable (batches)
@@ -189,5 +192,8 @@ class vae_mnist():
                return
            yield chunk
 
+test, train = data_io.test_train_sets_lpd5(root_dir + "data/lpd_5/", track_name='Piano', split_len=256)
+train = list(itertools.islice(train, training_size))
+
 model = vae_mnist()
-model.train()
+model.train(train)
