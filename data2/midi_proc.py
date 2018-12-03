@@ -7,10 +7,8 @@ vectorize('./myfile.mid', 16) -> list of vectors for each track, qtized to 16th
 import os
 import sys
 import time
-
 import numpy as np
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import mido
 import pypianoroll

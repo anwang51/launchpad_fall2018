@@ -9,15 +9,16 @@ https://drive.google.com/uc?id=1XJ648WDMjRilbhs4hE3m099ZQIrJLvUB&export=download
 >>> next(train) --> returns 2d array of shape split_len*127
 4. Profit
 
+NOte:
+
+
 """
 import os
 import random
 import matplotlib
-matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import pypianoroll
 import mido
-
 import midi_proc
 
 def iter_dir(dir, ext=None, ext_set=None, recursive=True):
@@ -94,17 +95,25 @@ def iter_lpd5_paths(paths, track_name='Piano', beat_resolution=4, split_len=None
     for path in paths:
         yield from iter_lpd5_file(path, track_name, beat_resolution, split_len)
 
-def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_len=None):
+def test_train_paths_lpd5(root_dir):
     """
-    Partition the lpd5 set into 90% train, 10% test and yield iterators over
-    both sets. Returns [test_set_iterator, train_set_iterator].
+    Partition the lpd5 set into 90% train, 10% test and yield list of paths for
+    both sets. Returns [test_set_paths, train_set_paths].
     See iter_lpd5_file for what the other parameters do
     """
     paths = get_all_paths(root_dir, '.npz')
     random.shuffle(paths)
     split_point = len(paths)//10
     test, train = paths[:split_point], paths[split_point:]
-    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in [test, train]]
+    return test, train
+
+def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_len=None):
+    """
+    Partition the lpd5 set into 90% train, 10% test and yield iterators over
+    both sets. Returns [test_set_iterator, train_set_iterator].
+    See iter_lpd5_file for what the other parameters do
+    """
+    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in test_train_paths_lpd5(root_dir)]
 
 # # does not support drum tracks right now.
 # def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None, frame_dur=16):
