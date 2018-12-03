@@ -90,6 +90,14 @@ def trim_silence(frames):
     if first_nonzero_index is not None and last_nonzero_index is not None:
         return frames[first_nonzero_index:last_nonzero_index+1]
 
+def split_len(frames, split_len=64):
+    """
+    Split into frames of length n
+    """
+    num_frames = len(frames)//split_len
+    for frame in range(num_frames):
+        yield frames[frame*split_len:(frame+1)*split_len]
+
 def split_silence(frames, split_len=16):
     """
     >>> arr = np.array([[1], [0], [0], [2], [0], [3], [4], [5], [0], [0], [0], [6], [0]])
