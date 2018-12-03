@@ -4,15 +4,17 @@ Usage:
 1. Download and unzip lpd5_cleansed dataset from
 https://drive.google.com/uc?id=1XJ648WDMjRilbhs4hE3m099ZQIrJLvUB&export=download
 2. Get testing (10%) and training (90%) iterators
->>> test, train = test_train_sets_lpd5("/path/to/lpd5/folder", track_name='Piano')
+>>> test, train = test_train_sets_lpd5("/path/to/lpd5/folder", track_name='Piano', split_len=256)
 3. Use
->>> next(train) --> returns 2d array with each row = note vels at a given timestep from 0 to 127
+>>> next(train) --> returns 2d array of shape split_len*127
 4. Profit
 
 """
 import os
 import random
-
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 import pypianoroll
 import mido
 
@@ -22,9 +24,9 @@ def iter_dir(dir, ext=None, ext_set=None, recursive=True):
     """
     Generator over all files in a directory with a certain extension.
     Yields paths to the files.
-    
+
     dir -- the root directory to search. File paths are appended to this, so if
-           it is absolute 
+           it is absolute
     ext -- the extension, e.g. '.midi'
     ext_set -- set this INSTEAD of ext to get files with multiple extensions
                e.g. set('.midi', '.mid')
@@ -55,20 +57,24 @@ def iter_lpd5_file(path, track_name='Piano', beat_resolution=4, split_len=None):
     Typically, this will just yield the vectors array corresponding to the
     instrument you want, but if split_len is a number then it will yield
     multiple arrays.
-    
+
     path -- path to npz file
     track_name -- which instrument to get. Must be in lpd5_valid_tracks
     beat_resolution -- number of time-steps per beat
                        e.g. in 4/4 time, beat_resolution=4 -> 16th note step
-    split_len -- split track into subtracks if there is a silence with more
-                 than split_len beats. Default is to not split.
+    split_len -- split track into subtracks of length split_len. Will discard
+                 the leftovers.
+                 e.g. if the array is 50x127 and split_len = 20
+                 then two 20x127 arrays are yielded one after the other.
+                 If split_len = 40 then one 40x127 array is yielded.
+                 If split_len = 60 then nothing is yielded.
     """
     multitrack = midi_proc.load_npz(path)
     if multitrack:
         tracks = (track for track in multitrack.tracks if track.name == track_name)
         for track in tracks:
             if split_len:
-                yield from midi_proc.split_silence(track.pianoroll, split_len=split_len)
+                yield from midi_proc.split_len(track.pianoroll, split_len=split_len)
             else:
                 if track.pianoroll.size > 0: yield track.pianoroll
 

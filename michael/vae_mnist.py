@@ -2,15 +2,23 @@ import tensorflow as tf
 import numpy as np
 import os
 import scipy.misc
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
+import sys
+sys.path.append('/Users/AShi/Desktop/launchpad_fall2018/data')
+import data_io
+import itertools
+training_size = 6400
 
 class vae_mnist():
     def __init__(self):
-        self.x_mat, self.label = self.get_training_data()
-        self.n_samples = len(self.x_mat)
+        self.x_mat = self.get_training_data()
+        self.n_samples = training_size
 
         self.n_hidden = 500
         self.n_z = 2
-        self.batch_size = 100
+        self.batch_size = 64
         self.checkpoint_dir = './vae_mnist'
         self.model_dir = "%s_%s" % (self.batch_size, self.n_z)
         self.sess = tf.Session()
@@ -80,11 +88,11 @@ class vae_mnist():
     def train(self):
         self.training = True
         counter = 0
-        validator = np.copy(self.x_mat[:self.batch_size])
-        reshape_validator = validator.reshape(self.batch_size,28,28)
-        v_labels = np.copy(self.label[:self.batch_size])
-        np.save('vae_mnist/v_labels.npy', v_labels)
-        scipy.misc.imsave("vae_mnist/base.jpg",self.merge(reshape_validator[:64],[8,8]))
+        validator = np.copy(list(itertools.islice(self.x_mat, self.batch_size)))
+        # reshape_validator = validator.reshape(self.batch_size,28,28)
+        # v_labels = np.copy(self.label[:self.batch_size])
+        # np.save('vae_mnist/v_labels.npy', v_labels)
+        # scipy.misc.imsave("vae_mnist/base.jpg",self.merge(reshape_validator[:64],[8,8]))
 
         could_load, checkpoint_counter = self.load(self.checkpoint_dir)
         if could_load:
@@ -95,11 +103,12 @@ class vae_mnist():
         total_batch = self.n_samples // self.batch_size
 
         for epoch in range(2000):
-            np.random.shuffle(self.x_mat)
+            # np.random.shuffle(self.x_mat)
             for i in range(total_batch):
                 counter += 1
                 offset = (i * self.batch_size) % (self.n_samples)
-                batch_xs_input = self.x_mat[offset:(offset + self.batch_size), :]
+                # batch_xs_input = self.x_mat[offset:(offset + self.batch_size), :]
+                batch_xs_input = list(itertools.islice(self.x_mat, self.batch_size))
 
                 _, gen_loss, lat_loss = self.sess.run((self.optimizer, self.generation_loss, self.latent_loss), feed_dict={self.images: batch_xs_input})
 
@@ -157,13 +166,14 @@ class vae_mnist():
         return img
 
     def get_training_data(self):
-        mnist = tf.contrib.learn.datasets.load_dataset("mnist")
-        train_data = mnist.train.images
-        train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
-        eval_data = mnist.test.images
-        eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
-        return train_data, train_labels
-
+        # mnist = tf.contrib.learn.datasets.load_dataset("mnist")
+        # train_data = mnist.train.images
+        # train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
+        # eval_data = mnist.test.images
+        # eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
+        # return train_data, train_labels
+        test, train = data_io.test_train_sets_lpd5("/Users/AShi/Desktop/lpd_5", track_name='Piano')
+        return itertools.islice(train, training_size)
 
 model = vae_mnist()
 # model.train()
