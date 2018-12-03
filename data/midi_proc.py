@@ -9,6 +9,8 @@ import sys
 import time
 
 import numpy as np
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import mido
 import pypianoroll
@@ -73,7 +75,7 @@ def vectorize_track(track, ticks_per_beat, frame_dur=16, drum_mode=False, trim=T
         frames = trim_silence(frames)
     if frames:
         return np.vstack(frames)
-    
+
 def trim_silence(frames):
     first_nonzero_index = None
     last_nonzero_index = None
@@ -113,7 +115,7 @@ def split_silence(frames, split_len=16):
     else:
         split_frames.append(frames[left:])
     return [frames for frames in split_frames if not len(frames) == 0]
-    
+
 def play_vector(vector, delay=0.1):
     global out
     if out is None:
