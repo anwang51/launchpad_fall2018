@@ -92,7 +92,7 @@ class LSTM:
 			padding="same",
 			strides=[self.stride_length, self.stride_length],
 			activation=tf.nn.relu
-			)		
+			)
 		self.final_outputs = tf.layers.conv2d_transpose(deconv2,
 			filters=1,
 			kernel_size=[3,3],
@@ -115,8 +115,8 @@ class LSTM:
 		x = np.reshape(x, (num_timesteps, self.num_notes, 1))
 		y = np.append(x[1:], np.zeros((1, self.num_notes, 1)), axis=0)
 
-		counter = 0 
-		while True: 
+		counter = 0
+		while True:
 			x_mat, y_mat = [], []
 			for _ in range(self.batch_size):
 				x_mat.append(x)
@@ -133,12 +133,12 @@ class LSTM:
 		# IN PROGRESS
 		x = np.array([np.reshape(x, (num_timesteps, self.num_notes, 1))])
 		# assume output is same size as input
-		init_output, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: x, 
+		init_output, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: x,
 			self.init_state: np.random.rand(num_timesteps, self.num_layers * 2 * self.state_size)})
 		y = init_output
 		last_note = np.array([init_output[0][-1]])
 		for _ in range(length):
-			last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note, 
+			last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note,
 			self.init_state: state})
 			y = np.append(y, last_note[0], axis=0)
 		return y
