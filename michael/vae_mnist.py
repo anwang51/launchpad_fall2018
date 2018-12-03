@@ -11,8 +11,8 @@ import itertools
 import pdb
 training_size = 6400 # number of total training samples
 
-# root_dir = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michael/"
-root_dir = "/home/ubuntu/launchpad_fall2018/michael/"
+root_dir = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michael/"
+# root_dir = "/home/ubuntu/launchpad_fall2018/michael/"
 sys.path.append(root_dir + 'data') # local path to data_io.py directory
 
 class vae_mnist():
@@ -52,47 +52,47 @@ class vae_mnist():
 
     # encoder
     def encoder(self, x):
-        # with tf.device('/gpu:0'):
+        with tf.device('/gpu:0'):
         # w0 = tf.get_variable('w0', [28, self.n_hidden], initializer=w_init
-        w0 = tf.Variable(tf.random_normal((x.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32) # equivalent?
-        b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h0 = tf.matmul(x, w0) + b0
-        h0 = tf.nn.leaky_relu(h0)
-        # can add dropout
+            w0 = tf.Variable(tf.random_normal((x.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32) # equivalent?
+            b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h0 = tf.matmul(x, w0) + b0
+            h0 = tf.nn.leaky_relu(h0)
+            # can add dropout
 
-        w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
-        b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h1 = tf.matmul(h0, w1) + b1
-        h1 = tf.nn.leaky_relu(h1)
+            w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
+            b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h1 = tf.matmul(h0, w1) + b1
+            h1 = tf.nn.leaky_relu(h1)
 
-        w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.n_z * 2), stddev=0.01), dtype=tf.float32)
-        b_out = tf.Variable(tf.random_normal((self.n_z * 2,), stddev=0.01), dtype=tf.float32)
-        params = tf.matmul(h1, w_out) + b_out
+            w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.n_z * 2), stddev=0.01), dtype=tf.float32)
+            b_out = tf.Variable(tf.random_normal((self.n_z * 2,), stddev=0.01), dtype=tf.float32)
+            params = tf.matmul(h1, w_out) + b_out
 
-        mu = params[:, :self.n_z]
-        # The standard deviation must be positive.
-        sigma =  1e-6 + tf.nn.softplus(params[:, self.n_z:])
+            mu = params[:, :self.n_z]
+            # The standard deviation must be positive.
+            sigma =  1e-6 + tf.nn.softplus(params[:, self.n_z:])
 
-        return mu, sigma
+            return mu, sigma
 
     def decoder(self, z):
-        # with tf.device('/gpu:0'):
-        w0 = tf.Variable(tf.random_normal((z.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
-        b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h0 = tf.matmul(z, w0) + b0
-        h0 = tf.nn.leaky_relu(h0)
-        # can add dropout
+        with tf.device('/gpu:0'):
+            w0 = tf.Variable(tf.random_normal((z.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
+            b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h0 = tf.matmul(z, w0) + b0
+            h0 = tf.nn.leaky_relu(h0)
+            # can add dropout
 
-        w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
-        b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
-        h1 = tf.matmul(h0, w1) + b1
-        h1 = tf.nn.leaky_relu(h1)
+            w1 = tf.Variable(tf.random_normal((h0.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
+            b1 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
+            h1 = tf.matmul(h0, w1) + b1
+            h1 = tf.nn.leaky_relu(h1)
 
-        w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.input_size), stddev=0.01), dtype=tf.float32)
-        b_out = tf.Variable(tf.random_normal((self.input_size,), stddev=0.01), dtype=tf.float32)
-        y = tf.sigmoid(tf.matmul(h1, w_out) + b_out)
+            w_out = tf.Variable(tf.random_normal((h1.get_shape().as_list()[1], self.input_size), stddev=0.01), dtype=tf.float32)
+            b_out = tf.Variable(tf.random_normal((self.input_size,), stddev=0.01), dtype=tf.float32)
+            y = tf.sigmoid(tf.matmul(h1, w_out) + b_out)
 
-        return y
+            return y
 
     def train(self, xmat):
         self.training = True
