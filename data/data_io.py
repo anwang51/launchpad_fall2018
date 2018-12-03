@@ -15,6 +15,9 @@ NOte:
 """
 import os
 import random
+import matplotlib
+matplotlib.use('TkAgg')
+import matplotlib.pyplot as plt
 import pypianoroll
 import mido
 import midi_proc
@@ -23,9 +26,9 @@ def iter_dir(dir, ext=None, ext_set=None, recursive=True):
     """
     Generator over all files in a directory with a certain extension.
     Yields paths to the files.
-    
+
     dir -- the root directory to search. File paths are appended to this, so if
-           it is absolute 
+           it is absolute
     ext -- the extension, e.g. '.midi'
     ext_set -- set this INSTEAD of ext to get files with multiple extensions
                e.g. set('.midi', '.mid')
@@ -56,7 +59,7 @@ def iter_lpd5_file(path, track_name='Piano', beat_resolution=4, split_len=None):
     Typically, this will just yield the vectors array corresponding to the
     instrument you want, but if split_len is a number then it will yield
     multiple arrays.
-    
+
     path -- path to npz file
     track_name -- which instrument to get. Must be in lpd5_valid_tracks
     beat_resolution -- number of time-steps per beat
