@@ -113,7 +113,7 @@ class vae_mnist():
             print(" [!] Load failed...")
         total_batch = self.n_samples // self.batch_size
 
-        for epoch in range(2000):
+        for epoch in range(float("inf")):
             # np.random.shuffle(self.x_mat)
             x_iter = self.grouper(self.batch_size, xmat) # batches of input songs
             for i in range(total_batch):
@@ -139,6 +139,8 @@ class vae_mnist():
             # plt.show()
             # z_mu = np.load('vae_mnist/mu.npy')
             # y_sample = np.load('vae_mnist/v_labels.npy')
+
+    def eval
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
@@ -197,7 +199,8 @@ class vae_mnist():
            yield chunk
 
 test, train = data_io.test_train_sets_lpd5(root_dir + "data/lpd_5/", track_name='Piano', split_len=256)
-train = list(itertools.islice(train, training_size))
+# train = list(itertools.islice(train, training_size))
+train = list(train)
 
 model = vae_mnist()
 model.train(train)
