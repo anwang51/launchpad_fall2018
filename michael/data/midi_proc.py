@@ -138,3 +138,12 @@ def play_vector(vector, delay=0.1):
 def plot(vector):
     plt.imshow(np.transpose(vector))
     plt.show()
+
+def convert_to_mono(vector):
+    new_vec = []
+    for row in vector:
+        for i in reversed(range(len(row))):
+            if row[i] or i == 0:
+                new_vec.append(i)
+                break
+    return np.array(new_vec)

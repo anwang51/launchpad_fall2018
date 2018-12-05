@@ -7,19 +7,23 @@ matplotlib.use('TkAgg')
 import matplotlib.pyplot as plt
 import sys
 from data import data_io
+from data import midi_proc
 import itertools
 import pdb
-training_size = 6400 # number of total training samples
+training_size = 64 # number of total training samples
 
-root_dir = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michael/"
+# root_dir = "/Users/wangan/Documents/launchpad_githubs/launchpad_fall2018/michael/"
 # root_dir = "/home/ubuntu/launchpad_fall2018/michael/"
+root_dir = "/Users/Praveen/Documents/My Documents/launchpad/launchpad_fall2018/michael/"
 sys.path.append(root_dir + 'data') # local path to data_io.py directory
+
+SPLIT_LEN = 128
 
 class vae_mnist():
     def __init__(self):
         self.n_samples = training_size
 
-        self.input_size = 256*128 # 256 timesteps * 128 notes per step
+        self.input_size = SPLIT_LEN#*128 # 256 timesteps * 128 notes per step
         self.n_hidden = 500
         self.n_z = 2
         self.batch_size = 64
@@ -32,7 +36,7 @@ class vae_mnist():
         self.saver = tf.train.Saver()
 
     def build_model(self):
-        with tf.device('/device:gpu:0'):
+        # with tf.device('/gpu:0'):
             self.images = tf.placeholder(tf.float32, [None, self.input_size])
             # image_matrix = tf.reshape(self.images,[-1, 28, 28, 1])
             self.mu, sigma = self.encoder(self.images)
@@ -52,7 +56,7 @@ class vae_mnist():
 
     # encoder
     def encoder(self, x):
-        with tf.device('/gpu:0'):
+        # with tf.device('/gpu:0'):
         # w0 = tf.get_variable('w0', [28, self.n_hidden], initializer=w_init
             w0 = tf.Variable(tf.random_normal((x.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32) # equivalent?
             b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
@@ -76,7 +80,7 @@ class vae_mnist():
             return mu, sigma
 
     def decoder(self, z):
-        with tf.device('/gpu:0'):
+        # with tf.device('/gpu:0'):
             w0 = tf.Variable(tf.random_normal((z.get_shape().as_list()[1], self.n_hidden), stddev=0.01), dtype=tf.float32)
             b0 = tf.Variable(tf.random_normal((self.n_hidden,), stddev=0.01), dtype=tf.float32)
             h0 = tf.matmul(z, w0) + b0
@@ -113,7 +117,7 @@ class vae_mnist():
             print(" [!] Load failed...")
         total_batch = self.n_samples // self.batch_size
 
-        for epoch in range(2000):
+        for epoch in itertools.count():
             # np.random.shuffle(self.x_mat)
             x_iter = self.grouper(self.batch_size, xmat) # batches of input songs
             for i in range(total_batch):
@@ -196,8 +200,16 @@ class vae_mnist():
                return
            yield chunk
 
-test, train = data_io.test_train_sets_lpd5(root_dir + "data/lpd_5/", track_name='Piano', split_len=256)
-train = list(itertools.islice(train, training_size))
+test, train = data_io.test_train_sets_lpd5("/Users/Praveen/Documents/My Documents/launchpad/Launchpad_datsets/lpd_5_cleansed", track_name='Piano', split_len=SPLIT_LEN)
+
+def train_yielder():
+    for t in train:
+        mono = midi_proc.convert_to_mono(t)
+        print(mono.size)
+        yield mono
+
+train = list(itertools.islice(train_yielder(), training_size))
+#//;; train = list(train)
 
 model = vae_mnist()
 model.train(train)

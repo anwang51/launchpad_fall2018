@@ -15,6 +15,7 @@ class LSTM:
 		self.hidden_size = 256 #hidden size
 		self.num_layers = 2
 		self.stride_length = 2
+		self.conv_out_size = self.num_notes / (np.pow(self.stride_length, 3))
 		self.batch_size = 64 #'sentences' to look at
 		self.steps = 100 #chars in a sentence ? might need to be higher, variable padding
 		self.checkpoint_dir = "./checkpoint"
@@ -29,7 +30,7 @@ class LSTM:
 
 		conv1 = tf.layers.conv2d(
 			inputs=self.x,
-			filters=128,
+			filters=self.num_filters,
 			kernel_size=[3,3],
 			padding="same",
 			activation=tf.nn.relu
@@ -41,7 +42,7 @@ class LSTM:
 			)
 		conv2 = tf.layers.conv2d(
 			inputs=pool1,
-			filters=128,
+			filters=self.num_filters,
 			kernel_size=[3,3],
 			padding="same",
 			activation=tf.nn.relu
@@ -53,7 +54,7 @@ class LSTM:
 			)
 		conv3 = tf.layers.conv2d(
 			inputs=pool2,
-			filters=128,
+			filters=self.num_filters,
 			kernel_size=[3,3],
 			padding="same",
 			activation=tf.nn.relu
@@ -64,14 +65,15 @@ class LSTM:
 			strides=[self.stride_length, self.stride_length]
 			)
 
-		# pdb.set_trace()
+		pdb.set_trace()
+
 		# pool3_flat = tf.layers.Flatten()(pool3)
-		# pool3_flat = tf.expand_dims(pool3, 3)
+		pool3_flat = tf.reshape(pool3, [self.batch_size, -1, self.conv_out_size * self.num_filters])
 
 		self.init_state = tf.placeholder(tf.float32, [self.batch_size, self.num_layers * 2 * self.state_size])
 		self.lstm_cells = [tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
 		self.lstm = tf.contrib.rnn.MultiRNNCell(self.lstm_cells,state_is_tuple=False)
-		pdb.set_trace()
+		# pdb.set_trace()
 		# Iteratively compute output of recurrent network
 		# test = tf.placeholder(tf.float32, [self.batch_size, self.num_notes, 256])
 		# outputs, self.new_state = tf.nn.dynamic_rnn(self.lstm, test, initial_state=self.init_state, dtype=tf.float32)
