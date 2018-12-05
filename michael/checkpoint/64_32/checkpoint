@@ -1,5 +1,0 @@
-model_checkpoint_path: "lstm.model-1502"
-all_model_checkpoint_paths: "lstm.model-2"
-all_model_checkpoint_paths: "lstm.model-502"
-all_model_checkpoint_paths: "lstm.model-1002"
-all_model_checkpoint_paths: "lstm.model-1502"
