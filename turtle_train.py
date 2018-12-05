@@ -8,6 +8,7 @@ import data2.data_io as data_io
 class DumbModel:
     def train(self, batch):
         pass
+        pass
     def evaluate(self, batch):
         pass
     def save_checkpoint(self):
