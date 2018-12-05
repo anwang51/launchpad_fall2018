@@ -10,7 +10,7 @@ class LSTM:
 
 	def __init__(self):
 		self.num_notes = 128 #in size
-		self.state_size = 256 
+		self.state_size = 256
 		self.hidden_size = 256 #hidden size
 		self.num_layers = 2
 		self.stride_length = 2
@@ -37,7 +37,7 @@ class LSTM:
 			filters=self.num_filters,
 			kernel_size=[3,3],
 			padding="same",
-			activation=tf.nn.relu
+			activation=tf.nn.leaky_relu
 			)
 		pool1 = tf.layers.max_pooling2d(
 			inputs=conv1,
@@ -49,7 +49,7 @@ class LSTM:
 			filters=self.num_filters,
 			kernel_size=[3,3],
 			padding="same",
-			activation=tf.nn.relu
+			activation=tf.nn.leaky_relu
 			)
 		pool2 = tf.layers.max_pooling2d(
 			inputs=conv2,
@@ -61,7 +61,7 @@ class LSTM:
 			filters=self.num_filters,
 			kernel_size=[3,3],
 			padding="same",
-			activation=tf.nn.relu
+			activation=tf.nn.leaky_relu
 			)
 		pool3 = tf.layers.max_pooling2d(
 			inputs=conv3,
@@ -96,21 +96,21 @@ class LSTM:
 			kernel_size=[5,5],
 			padding="same",
 			strides=[self.stride_length, self.stride_length],
-			activation=tf.nn.relu
+			activation=tf.nn.leaky_relu
 			)
 		deconv2 = tf.layers.conv2d_transpose(deconv1,
 			filters=128,
 			kernel_size=[3,3],
 			padding="same",
 			strides=[self.stride_length, self.stride_length],
-			activation=tf.nn.relu
+			activation=tf.nn.leaky_relu
 			)
 		self.final_outputs = tf.layers.conv2d_transpose(deconv2,
 			filters=1,
 			kernel_size=[3,3],
 			padding="same",
 			strides=[self.stride_length, self.stride_length],
-			activation=tf.nn.relu
+			activation=tf.nn.leaky_relu
 			)
 		self.lstm_last_state = np.zeros((self.num_layers * 2 * self.state_size))
 
@@ -120,9 +120,9 @@ class LSTM:
 		self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(labels=self.labels, logits=self.logits) #tf.reshape(self.y_truth, [-1, self.output_size]))
 		self.total_loss = tf.reduce_mean(self.losses)
 		self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.5),0.995)
-		# self.optimizer.minimize(self.total_loss)
 
 		self.variables = tf.trainable_variables()
+		# self.optimizer.minimize(self.total_loss) # shouldn't this do the same as below
 		self.gradients = self.optimizer.compute_gradients(self.total_loss, self.variables)
 		self.optimizer.apply_gradients(self.gradients)
 
@@ -142,11 +142,13 @@ class LSTM:
 		while True:
 			x_mat = np.array(x_mat)
 			y_mat = np.array(y_mat)
-			init_state = np.random.rand(self.batch_size, self.num_layers * 2 * self.state_size)
+			# init_state = np.random.rand(self.batch_size, self.num_layers * 2 * self.state_size)
 			# pdb.set_trace()
-			loss, losses, prediction, truth, variables, gradients = self.sess.run([self.total_loss, self.losses, self.logits, self.y_truth, self.variables, self.gradients], {self.x: x_mat})
+			init_value = np.zeros((self.batch_size, self.num_layers * 2 * self.state_size))
+			loss, losses, prediction, truth, variables, gradients = self.sess.run([self.total_loss, self.losses, self.logits, self.y_truth, self.variables, self.gradients], {self.x: x_mat, self.init_state: init_value})
 			counter +=1
 			if counter % 1 == 0:
+				# print(grad)
 				print("Loss: %f" % (loss))
 				if np.array_equal(last_prediction, prediction):
 					print("Same prediction")
@@ -159,7 +161,7 @@ class LSTM:
 				print(variables)
 				last_prediction = prediction
 				last_variables = variables
-				pdb.set_trace()
+				# pdb.set_trace()
 
 	def evaluate(self, x, length):
 		# IN PROGRESS
@@ -170,19 +172,19 @@ class LSTM:
 		y = init_output
 		last_note = np.array([init_output[0][-1]])
 		for _ in range(length):
-			last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note})
+			last_note, state = self.sess.run([self.final_outputs, self.lstm_last_state], {self.x: last_note}) # need to add the init_state that is updated every loop
 			y = np.append(y, last_note[0], axis=0)
 		return y
 
-def rand_track(num_beats):
+def rand_track(num_beats): # is this rand?
 	return np.ones((num_beats, 128))
 
 def cross_entropy(predictions, targets, epsilon=1e-12):
     """
     Computes cross entropy between targets (encoded as one-hot vectors)
-    and predictions. 
+    and predictions.
     Input: predictions (N, k) ndarray
-           targets (N, k) ndarray        
+           targets (N, k) ndarray
     Returns: scalar
     """
     predictions = np.clip(predictions, epsilon, 1. - epsilon)

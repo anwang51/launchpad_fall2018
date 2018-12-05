@@ -24,14 +24,32 @@ class Music:
 
     def build_model(self):
         # Bi-directional RNN (LSTM) as the encoder
-        self.x = tf.placeholder(tf.float32,[None,None, self.num_classes])
-        self.y_truth = tf.placeholder(tf.float32, [None, None, self.num_classes])
+        self.x = tf.placeholder(tf.float32,[None,None, self.num_classes]) # any number of songs for the batch
+
+        self.mu, sigma = self.encoder(self.x)
+
+        # reparametrize the outputs from the encoder
+        self.z = mu + sigma * tf.random_normal(tf.shape(self.mu), 0, 1, dtype=tf.float32)
+
+        # Hierarchical RNN as the decoder – 2 RNNs stacked – (also use seq2seq for attention?)
+        self.conduct = self.conductor(self.z)
+        self.init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * self.state_size])
+        self.generated = self.decoder(self.conduct,self.init_state)
+
+        self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=net_output,labels=tf.reshape(self.x, [-1, self.output_size]))
+        self.total_loss = tf.reduce_mean(self.losses)
+
+        # self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.003),0.9).minimize(self.total_loss)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=0.001,beta2=0.9999).minimize(self.total_loss)
+
+    def encoder(self, x):
+        # self.y_truth = tf.placeholder(tf.float32, [None, None, self.num_classes])
         self.lstm_cells_f = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.nn.leaky_relu), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
         self.lstm_cells_b = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.nn.leaky_relu), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
         self.lstm_f = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_f,state_is_tuple=False)
         self.lstm_b = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_b,state_is_tuple=False)
         # Iteratively compute output of recurrent network
-        outputs, (states_f, states_w) = tf.nn.bidirectional_dynamic_rnn(self.lstm_f, self.lstm_b, inputs=self.x, dtype=tf.float32)
+        outputs, (states_f, states_w) = tf.nn.bidirectional_dynamic_rnn(self.lstm_f, self.lstm_b, inputs=x, dtype=tf.float32)
         self.bi_final_state = tf.concat([states_f, states_w], 1)
         self.W_mu = tf.Variable(tf.random_normal((self.state_size, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
         self.b_mu = tf.Variable(tf.random_normal((self.latent_dim * 2,), stddev=0.01), dtype=tf.float32)
@@ -43,92 +61,99 @@ class Music:
         # borrowed from https://github.com/hwalsuklee/tensorflow-mnist-VAE/blob/master/vae.py
         mu = params_mu[:, :self.latent_dim]
         # The standard deviation must be positive.
-        sigma =  1e-6 + tf.nn.softplus(params_sig[:, self.latent_dim:])
-        # reparametrize the outputs from the encoder
-        self.z = mu + sigma * tf.random_normal(tf.shape(mu), 0, 1, dtype=tf.float32)
-		self.conduct_init = tf.layers.dense(self.z, self.latent_dim, activation=tf.tanh)
-        # Hierarchical RNN as the decoder – 2 RNNs stacked – (also use seq2seq for attention?)
-            # Conductor RNN - 2 layer 1024, 512 dims, vector c of lenght U (length of song), then output to shared fully-connected dense w/ tanh
+        sigma = 1e-6 + tf.nn.softplus(params_sig[:, self.latent_dim:])
 
-            # Decoder RNN - 2 layer 1024 units per layer, output to 128 w/ softmax output layer, concat previous state like in normal rnn but also with vector c[n]
+        return mu, sigma
 
-        self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=net_output,labels=tf.reshape(self.y_truth, [-1, self.output_size]))
-        self.total_loss = tf.reduce_mean(self.losses)
+    def conductor(self, z):
+        hidden_size = 1024
+        output_size = 512
+        conduct_init = tf.layers.dense(self.z, self.latent_dim, activation=tf.tanh)
+        # Conductor RNN - 2 layer 1024, 512 dims, vector c of lenght U (length of song), then output to shared fully-connected dense w/ tanh
+        init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * hidden_size])
+        lstm_cells = [tf.nn.rnn_cell.LSTMCell(hidden_size, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
+        lstm = tf.contrib.rnn.MultiRNNCell(lstm_cells,state_is_tuple=False)
+        outputs, new_state = tf.nn.dynamic_rnn(lstm, conduct_init, initial_state=init_state, dtype=tf.float32)
+        W_hy = tf.Variable(tf.random_normal((hidden_size, output_size),stddev=0.01),dtype=tf.float32)
+        b_y = tf.Variable(tf.random_normal((output_size,), stddev=0.01), dtype=tf.float32)
+        net_output = tf.matmul(tf.reshape(outputs, [-1, hidden_size]), W_hy) + b_y
 
-        self.optimizer = tf.train.RMSPropOptimizer(tf.constant(0.003),0.9).minimize(self.total_loss)
+        final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], output_size)) # dont know if this line is supposed to be here
+        return self.final_outputs
 
-    def evaluate(self, letter, state):
-        out, next_lstm_state = self.sess.run([self.final_outputs, self.bi_final_state],{self.x: [letter], self.init_state: [state]})
-        return out[0][0], next_lstm_state
+    def decoder(self, c, init_state):
+        # Decoder RNN - 2 layer 1024 units per layer, output to 128 w/ softmax output layer, concat previous state like in normal rnn but also with vector c[n]
+        # will output like how the basic rnn does, just the first ouput and state, run this portion autoregressively when evaluating.
+        conduct_init = tf.layers.dense(c, output_size, activation=tf.tanh)
+        lstm_cells = [tf.nn.rnn_cell.LSTMCell(1024, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
+        lstm = tf.contrib.rnn.MultiRNNCell(lstm_cells,state_is_tuple=False)
+        # Iteratively compute output of recurrent network
+        outputs, self.new_state = tf.nn.dynamic_rnn(lstm, conduct_init, initial_state=init_state, dtype=tf.float32)
+        W_hy = tf.Variable(tf.random_normal((1024, 128),stddev=0.01),dtype=tf.float32)
+        b_y = tf.Variable(tf.random_normal((128,), stddev=0.01), dtype=tf.float32)
+        net_output = tf.matmul(tf.reshape(outputs, [-1, 1024]), W_hy) + b_y
 
-    def update(self, xbatch, ybatch):
-        # init_value = np.zeros((self.batch_size, self.num_layers * 2 * self.state_size))
-        return self.sess.run([self.total_loss, self.optimizer],{self.x: xbatch, self.y_truth: ybatch})
+        self.final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], 1024))
+
+        return self.final_outputs, self.new_state #use these when regressively calling the decoder rnn
+
+    # def evaluate(self, letter, state):
+    #     out, next_lstm_state = self.sess.run([self.final_outputs, self.bi_final_state],{self.x: [letter], self.init_state: [state]})
+    #     return out[0][0], next_lstm_state
+
+    # def update(self, xbatch, ybatch):
+    #     # init_value = np.zeros((self.batch_size, self.num_layers * 2 * self.state_size))
+    #     return self.sess.run([self.total_loss, self.optimizer],{self.x: xbatch, self.y_truth: ybatch})
 
     def train(self):
-        data = self.one_hotter()
+        self.training = True
+        counter = 0
+        # VALIDATION AND SCIPY DISPLAY FUNCTIONS COMMENTED OUT FOR NOW
+
+        # validator = np.copy(np.array(list(itertools.islice(self.x_mat, self.batch_size))))
+        # reshape_validator = validator.reshape(self.batch_size,28,28)
+        # v_labels = np.copy(self.label[:self.batch_size])
+        # np.save('vae_mnist/v_labels.npy', v_labels)
+        # scipy.misc.imsave("vae_mnist/base.jpg",self.merge(reshape_validator[:64],[8,8]))
 
         could_load, checkpoint_counter = self.load(self.checkpoint_dir)
-        counter = 0
         if could_load:
             counter = checkpoint_counter
             print(" [*] Load SUCCESS")
         else:
             print(" [!] Load failed...")
+        total_batch = self.n_samples // self.batch_size
 
-        possible_starts = range(data.shape[0] - self.steps - 1)
-        x_mat = np.zeros((self.batch_size, self.steps, self.num_classes))
-        y_mat = np.zeros((self.batch_size, self.steps, self.num_classes))
-        batch_idxs = len(data) // self.batch_size
-        EOS = np.zeros(self.num_classes)
-        EOS[self.alphabets["EOS"]] = 1
-
-        for epoch in range(20000):
-            for i in range(batch_idxs):
-                batch_id = random.sample(possible_starts,self.batch_size) # start idx for the batch
-
-                for it, k in enumerate(batch_id):
-                    for j in range(self.steps):
-                        xs = [k + j]
-                        if j == 0:
-                            result = np.zeros(self.num_classes)
-                            result[self.alphabets["BOS"]] = 1
-                            x_mat[it, j, :] = result
-                        x_mat[it, j, :] = data[xs, :]
-                        if np.array_equal(data[xs], EOS):
-                            break
-                #
-                # for j in range(self.steps):
-                #     xs = [k + j for k in batch_id]
-                #     ys = [k + j + 1 for k in batch_id]
-                #
-                #     if j == 0:
-                #         result = np.zeros(32)
-                #         result[self.alphabets["BOS"]] = 1
-                #         x_mat[:, j, :] = result
-                #     elif j == self.steps-1:
-                #         result = np.zeros(32)
-                #         result[self.alphabets["EOS"]] = 1
-                #         x_mat[:, j, :] = result
-                #     else:
-                #         x_mat[:, j, :] = data[xs, :] # each 2d is a self.steps x num_classes
-                #
-                #     y_mat[:, j, :] = data[ys, :] # pad each 2d with a row or EOS and BOS, then concat the two outputs
-
-                loss, opt_ = self.update(x_mat,x_mat)
+        for epoch in itertools.count():
+            # np.random.shuffle(self.x_mat)
+            x_iter = self.grouper(self.batch_size, xmat) # batches of input songs
+            for i in range(total_batch):
                 counter += 1
-                if np.mod(counter, 10) == 1:  # log every 10 iters
-                    print("Epoch: [%2d] [%4d/%4d], loss: %.8f" \
-                        % (counter//batch_idxs, counter, batch_idxs, loss))
-                if np.mod(counter, 100) == 1:  # log every 100 iters
-                    print(self.talk('the'))
-                if np.mod(counter, 500) == 2:
-                    self.save(self.checkpoint_dir, counter)
+                offset = (i * self.batch_size) % (self.n_samples)
+                batch_xs_input = np.array(next(x_iter)).reshape(self.batch_size, self.input_size)
+                _, gen_loss, lat_loss = self.sess.run((self.optimizer, self.generation_loss, self.latent_loss), feed_dict={self.images: batch_xs_input})
 
+            print("epoch %d: gen_loss %f lat_loss %f" % (epoch, np.mean(gen_loss), np.mean(lat_loss)))
+            # self.save(self.checkpoint_dir, counter)
+            # generator_test = self.sess.run(self.generated, feed_dict={self.images: validator})
+            # generator_test = generator_test.reshape(self.batch_size,28,28)
+            # scipy.misc.imsave(os.path.join(self.checkpoint_dir, self.model_dir)+'/'+str(counter//550)+'.jpg', self.merge(generator_test[:64], [8,8]))
+            # if self.n_z == 2:
+            #     z_mu = self.sess.run(self.mu, feed_dict={self.images: validator})
+            #     np.save('vae_mnist/mu.npy', z_mu)
+
+            # import matplotlib.pyplot as plt
+            # plt.figure(figsize=(8, 6))
+            # plt.scatter(z_mu[:, 0], z_mu[:, 1], c=y_sample)
+            # plt.colorbar()
+            # plt.grid()
+            # plt.show()
+            # z_mu = np.load('vae_mnist/mu.npy')
+            # y_sample = np.load('vae_mnist/v_labels.npy')
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
-        model_dir = "%s_%s" % (self.batch_size, self.output_size)
+        model_dir = "%s_%s" % (self.batch_size, self.n_z)
         checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
@@ -144,8 +169,8 @@ class Music:
             return False, 0
 
     def save(self, checkpoint_dir, step):
-        model_name = "lstm.model"
-        model_dir = "%s_%s" % (self.batch_size, self.output_size)
+        model_name = "vae.model"
+        model_dir = "%s_%s" % (self.batch_size, self.n_z)
         checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
 
         if not os.path.exists(checkpoint_dir):
@@ -153,4 +178,43 @@ class Music:
 
         self.saver.save(self.sess,os.path.join(checkpoint_dir, model_name),global_step=step)
 
+    def merge(self, images, size):
+        h, w = images.shape[1], images.shape[2]
+        img = np.zeros((h * size[0], w * size[1]))
+        for idx, image in enumerate(images):
+            i = idx % size[1]
+            j = idx // size[1]
+            img[j*h:j*h+h, i*w:i*w+w] = image
+        return img
+
+    def get_training_data(self):
+        # OLD MNIST TRAINING DATA CODE
+        # mnist = tf.contrib.learn.datasets.load_dataset("mnist")
+        # train_data = mnist.train.images
+        # train_labels = np.asarray(mnist.train.labels, dtype=np.int32)
+        # eval_data = mnist.test.images
+        # eval_labels = np.asarray(mnist.test.labels, dtype=np.int32)
+        # return train_data, train_labels
+
+        # NEW TRAINING DATA FROM LPD_5
+        return itertools.islice(train, training_size)
+
+    def grouper(self, n, iterable): # chunks and returns iterators of size n from iterable (batches)
+        it = iter(iterable)
+        while True:
+           chunk = tuple(itertools.islice(it, n))
+           if not chunk:
+               return
+           yield chunk
+
+test, train = data_io.test_train_sets_lpd5("./lpd_5_cleansed", track_name='Piano', split_len=SPLIT_LEN)
+
+def train_yielder():
+    for t in train:
+        mono = midi_proc.convert_to_mono(t)
+        print(mono.size)
+        yield mono
+
+train = list(itertools.islice(train_yielder(), training_size))
 model = Music()
+model.train(train)
