@@ -114,12 +114,7 @@ def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_
     both sets. Returns [test_set_iterator, train_set_iterator].
     See iter_lpd5_file for what the other parameters do
     """
-<<<<<<< HEAD:cnn_lstm/data_io.py
     return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in test_train_paths_lpd5(root_dir)]
-=======
-    test, train = test_train_paths_lpd5(root_dir, seed=seed)
-    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in [test, train]]
->>>>>>> 21156b7d1e7dcb0698a7cda9304a32165f03b764:michael/data/data_io.py
 
 # # does not support drum tracks right now.
 # def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None, frame_dur=16):
