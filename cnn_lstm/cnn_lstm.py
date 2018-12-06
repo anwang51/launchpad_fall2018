@@ -174,19 +174,6 @@ def process_song(song):
 		chunks.append(np.array(song[i * SONG_LENGTH : (i+1) * SONG_LENGTH]))
 	return chunks
 
-def cross_entropy(predictions, targets, epsilon=1e-12):
-    """
-    Computes cross entropy between targets (encoded as one-hot vectors)
-    and predictions.
-    Input: predictions (N, k) ndarray
-           targets (N, k) ndarray
-    Returns: scalar
-    """
-    predictions = np.clip(predictions, epsilon, 1. - epsilon)
-    N = predictions.shape[0]
-    ce = -np.sum(targets*np.log(predictions+1e-9))/N
-    return ce
-
 model = LSTM()
 training_size = 64
 training, validation = data_io.test_train_sets_lpd5(ROOT_DIR)
