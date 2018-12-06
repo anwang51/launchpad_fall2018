@@ -53,8 +53,8 @@ class Music:
     def encoder(self, x):
         with tf.device('/gpu:0'):
             # self.y_truth = tf.placeholder(tf.float32, [None, None, self.num_classes])
-            self.lstm_cells_f = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.nn.leaky_relu), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
-            self.lstm_cells_b = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.nn.leaky_relu), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
+            self.lstm_cells_f = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.tanh), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
+            self.lstm_cells_b = [tf.nn.rnn_cell.DropoutWrapper(tf.nn.rnn_cell.LSTMCell(self.state_size, forget_bias=1.0, state_is_tuple=False, activation=tf.tanh), output_keep_prob=self.global_dropout) for i in range(self.num_layers)]
             self.lstm_f = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_f,state_is_tuple=False)
             self.lstm_b = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_b,state_is_tuple=False)
             # Iteratively compute output of recurrent network
@@ -153,7 +153,8 @@ class Music:
                 _, gen_loss, tot_loss = self.sess.run((self.optimizer, self.losses, self.total_loss), feed_dict={self.x: self.batch_xs_input, self.init_state: init_value})
 
             print("epoch %d: gen_loss %f lat_loss %f" % (epoch, np.mean(gen_loss), np.mean(tot_loss)))
-            # self.save(self.checkpoint_dir, counter)
+            if (epoch % 5):
+                self.save(self.checkpoint_dir, counter)
             # generator_test = self.sess.run(self.generated, feed_dict={self.images: validator})
             # generator_test = generator_test.reshape(self.batch_size,28,28)
             # scipy.misc.imsave(os.path.join(self.checkpoint_dir, self.model_dir)+'/'+str(counter//550)+'.jpg', self.merge(generator_test[:64], [8,8]))
@@ -234,7 +235,7 @@ class Music:
             letter_vectors.append(result)
         return letter_vectors
 
-test, train = data_io.test_train_sets_lpd5("./lpd_5_cleansed", track_name='Piano', split_len=SPLIT_LEN)
+test, train = data_io.test_train_sets_lpd5("./data/lpd_5", track_name='Piano', split_len=SPLIT_LEN)
 
 def train_yielder():
     for t in train:
