@@ -122,11 +122,12 @@ def split_silence(frames, split_len=16):
         split_frames.append(frames[left:])
     return [frames for frames in split_frames if not len(frames) == 0]
 
-def play_vector(vector, delay=0.1):
+def play_vector(vector, repeat=True, delay=0.03):
     global out
     note_hold_mask = np.zeros(128)
     if out is None:
         out = mido.open_output("play_vector", virtual=True)
+    clear()
     for row in vector:
         for note, vel in enumerate(row):
             if not note_hold_mask[note]:
@@ -138,6 +139,11 @@ def play_vector(vector, delay=0.1):
             if not note_hold_mask[note]:
                 out.send(mido.Message('note_off', note=note))
             note_hold_mask[note] = max(0, note_hold_mask[note] - 1)
+    clear()
+
+def clear():
+    for note in range(128):
+        out.send(mido.Message('note_off', note=note))
 
 def histog_vectors(vectors):
     num_simul = np.zeros(128)
