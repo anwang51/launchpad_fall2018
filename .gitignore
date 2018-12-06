@@ -8,3 +8,4 @@ lpd_5_cleansed
 data/lpd_5/*
 *.pem
 michael/data/lpd_5/*
+cnn_lstm/lpd_5_cleansed/*

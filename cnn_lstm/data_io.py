@@ -95,25 +95,31 @@ def iter_lpd5_paths(paths, track_name='Piano', beat_resolution=4, split_len=None
     for path in paths:
         yield from iter_lpd5_file(path, track_name, beat_resolution, split_len)
 
-def test_train_paths_lpd5(root_dir):
+def test_train_paths_lpd5(root_dir, seed=1):
     """
     Partition the lpd5 set into 90% train, 10% test and yield list of paths for
     both sets. Returns [test_set_paths, train_set_paths].
     See iter_lpd5_file for what the other parameters do
     """
+    random.seed(seed)
     paths = get_all_paths(root_dir, '.npz')
     random.shuffle(paths)
     split_point = len(paths)//10
     test, train = paths[:split_point], paths[split_point:]
     return test, train
 
-def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_len=None):
+def test_train_sets_lpd5(root_dir, track_name='Piano', beat_resolution=4, split_len=None, seed=1):
     """
     Partition the lpd5 set into 90% train, 10% test and yield iterators over
     both sets. Returns [test_set_iterator, train_set_iterator].
     See iter_lpd5_file for what the other parameters do
     """
+<<<<<<< HEAD:cnn_lstm/data_io.py
     return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in test_train_paths_lpd5(root_dir)]
+=======
+    test, train = test_train_paths_lpd5(root_dir, seed=seed)
+    return [iter_lpd5_paths(x, track_name, beat_resolution, split_len) for x in [test, train]]
+>>>>>>> 21156b7d1e7dcb0698a7cda9304a32165f03b764:michael/data/data_io.py
 
 # # does not support drum tracks right now.
 # def iter_midi_file(path, allowed_programs=range(0, 5), split_len=None, frame_dur=16):

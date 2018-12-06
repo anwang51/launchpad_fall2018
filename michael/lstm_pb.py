@@ -1,10 +1,12 @@
 import tensorflow as tf
 import numpy as np
 import os
+import sys
 import random
 
 import itertools
 import data.data_io as data_io
+from turtle_train import TimeTrainer
 
 class LSTM:
 
@@ -14,8 +16,12 @@ class LSTM:
         self.state_size = 256 # hidden size
         self.num_layers = 2
         self.batch_size = 64
-        self.steps = 5120
+        self.steps = 2048
+        self.count = 0
+        self.running_list_of_losses = list()
+        self.test_train_seed = 1
         self.checkpoint_dir = "./checkpoint"
+        self.path_to_data = "/Users/Praveen/Documents/mydocs/launchpad/Launchpad_datsets/lpd_5_cleansed/A"
         self.sess = tf.Session()
         self._build_model()
         self.sess.run(tf.global_variables_initializer())
@@ -53,23 +59,21 @@ class LSTM:
         init_value = np.zeros((self.batch_size, self.num_layers * 2 * self.state_size))
         return self.sess.run([self.total_loss, self.optimizer],{self.x: xbatch, self.y_truth: ybatch, self.init_state: init_value})
 
-    def train(self, numiter):
-        test, train = data_io.test_train_sets_lpd5("/Users/Praveen/Documents/mydocs/launchpad/Launchpad_datsets/lpd_5_cleansed", track_name='Piano', beat_resolution=4, split_len=self.steps)
-        losses = list()
-        for count in range(numiter):
-            datum = list(itertools.islice(train, self.batch_size))
-            if len(datum) != self.batch_size:
-                break
-            datum = np.array(datum)
-            xs = datum[:, :-1]
-            ys = datum[:, 1:]
-            loss, opt_ = self.update(xs, ys)
-            losses.append(loss)
-            print(f"-----------{loss}")
-            if count % 10 == 0:
-                avg_loss = np.mean(losses)
-                losses = list()
-                print("@ %2d, avg loss: %.8f" % (count, avg_loss))
+    def train(self, batch):
+        assert len(batch) == self.batch_size
+        self.count += 1
+        batch = np.array(batch)
+        xs = batch[:, :-1]
+        ys = batch[:, 1:]
+        loss, opt_ = self.update(xs, ys)
+        self.running_list_of_losses.append(loss)
+        print(f"\t\t\t\tbatch {self.count} loss: {loss:.2f}")
+        if self.count % 10 == 0:
+            avg_loss = np.mean(self.running_list_of_losses)
+            self.running_list_of_losses = list()
+            print("\t\tafter %2d batches, avg loss: %.2f" % (self.count, avg_loss))
+        if self.count % 100 == 0:
+            self.save(self.checkpoint_dir, self.count)
 
 
     def load(self, checkpoint_dir):
@@ -88,6 +92,9 @@ class LSTM:
         else:
             print(" [*] Failed to find a checkpoint")
             return False, 0
+    
+    def save_checkpoint():
+        self.save(self.checkpoint_dir, self.count)
 
     def save(self, checkpoint_dir, step):
         model_name = "lstm.model"
@@ -100,4 +107,5 @@ class LSTM:
         self.saver.save(self.sess,os.path.join(checkpoint_dir, model_name),global_step=step)
 
 l = LSTM()
-l.train(100)
+trainer = TimeTrainer(l.path_to_data, l, os.path.join(l.checkpoint_dir, "trainer"), total_time=12000, epoch_interval=1, batch_size=l.batch_size, track_name='Piano', beat_resolution=4, split_len=l.steps)
+trainer.run_loop()
