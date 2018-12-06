@@ -117,40 +117,44 @@ def load_images():
 			imgs.append(img)
 	return imgs
 
+def load_images():
+	img = np.zeros((96, 128, 1))
+	return np.array([img for _ in range(64)])
+
 train_x = load_images()
 model = Deconv()
 
-bob = skio.imread(folder + "bob.jpg")
-bob = skt.resize(bob, (96, 128))
-bob = skco.rgb2gray(bob)
-bob = np.expand_dims(bob, 2)
+# bob = skio.imread(folder + "bob.jpg")
+# bob = skt.resize(bob, (96, 128))
+# bob = skco.rgb2gray(bob)
+# bob = np.expand_dims(bob, 2)
 
-y_bob = model.evaluate(bob)[0, :, :, 0]
-bob = bob[:, :, 0]
+# y_bob = model.evaluate(bob)[0, :, :, 0]
+# bob = bob[:, :, 0]
 
-sophia = skio.imread(folder + "sophia.jpg")
-sophia = skt.resize(sophia, (96, 128))
-sophia = skco.rgb2gray(sophia)
-sophia = np.expand_dims(sophia, 2)
+# sophia = skio.imread(folder + "sophia.jpg")
+# sophia = skt.resize(sophia, (96, 128))
+# sophia = skco.rgb2gray(sophia)
+# sophia = np.expand_dims(sophia, 2)
 
-y_sophia = model.evaluate(sophia)[0, :, :, 0]
-sophia = sophia[:, :, 0]
+# y_sophia = model.evaluate(sophia)[0, :, :, 0]
+# sophia = sophia[:, :, 0]
 
-jonathan = skio.imread(folder + "jonathan.jpg")
-jonathan = skt.resize(jonathan, (96, 128))
-jonathan = skco.rgb2gray(jonathan)
-jonathan = np.expand_dims(jonathan, 2)
+# jonathan = skio.imread(folder + "jonathan.jpg")
+# jonathan = skt.resize(jonathan, (96, 128))
+# jonathan = skco.rgb2gray(jonathan)
+# jonathan = np.expand_dims(jonathan, 2)
 
-y_jonathan = model.evaluate(jonathan)[0, :, :, 0]
-jonathan = jonathan[:, :, 0]
+# y_jonathan = model.evaluate(jonathan)[0, :, :, 0]
+# jonathan = jonathan[:, :, 0]
 
-michelle2 = skio.imread(folder + "michelle2.jpg")
-michelle2 = skt.resize(michelle2, (96, 128))
-michelle2 = skco.rgb2gray(michelle2)
-michelle2 = np.expand_dims(michelle2, 2)
+# michelle2 = skio.imread(folder + "michelle2.jpg")
+# michelle2 = skt.resize(michelle2, (96, 128))
+# michelle2 = skco.rgb2gray(michelle2)
+# michelle2 = np.expand_dims(michelle2, 2)
 
-y_michelle2 = model.evaluate(michelle2)[0, :, :, 0]
-michelle2 = michelle2[:, :, 0]
+# y_michelle2 = model.evaluate(michelle2)[0, :, :, 0]
+# michelle2 = michelle2[:, :, 0]
 
 x = train_x[30]
 original = x[:, :, 0]
