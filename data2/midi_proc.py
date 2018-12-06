@@ -136,3 +136,6 @@ def play_vector(vector, delay=0.1):
 def plot(vector):
     plt.imshow(np.transpose(vector))
     plt.show()
+
+def midify_vector(vector):
+    midi = mido.MidiFile()
