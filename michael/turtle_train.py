@@ -89,4 +89,4 @@ class TimeTrainer:
             print("ERROR: No losses calculated!")
     
     def calculate_loss(self, batch):
-        return -1
+        return self.model.evaluate(batch)
