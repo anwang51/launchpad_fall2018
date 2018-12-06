@@ -2,14 +2,21 @@ import tensorflow as tf
 import numpy as np
 import os
 import random
+from data import data_io
+from data import midi_proc
+import itertools
+
+SPLIT_LEN = 128
+training_size = 64
 
 class Music:
 
     def __init__(self):
+        self.n_samples = training_size
         self.output_size = 128 # output size # of possible notes
-		self.num_notes = 128 # input size
+        self.num_notes = 128 # input size
         self.num_layers = 2 # also for the b_lstm, can delete later
-        self.batch_size = 512 # can be changed depending on training speed
+        self.batch_size = 64 # can be changed depending on training speed
         self.state_size = 2048 # hidden layer of features for the blstm
         # implement weight decay
         self.decay_rate = .9999
@@ -24,17 +31,17 @@ class Music:
 
     def build_model(self):
         # Bi-directional RNN (LSTM) as the encoder
-        self.x = tf.placeholder(tf.float32,[None,None, self.num_classes]) # any number of songs for the batch
+        self.x = tf.placeholder(tf.float32,[None,None, self.num_notes]) # any number of songs for the batch
 
         self.mu, sigma = self.encoder(self.x)
 
         # reparametrize the outputs from the encoder
-        self.z = mu + sigma * tf.random_normal(tf.shape(self.mu), 0, 1, dtype=tf.float32)
+        self.z = self.mu + sigma * tf.random_normal(tf.shape(self.mu), 0, 1, dtype=tf.float32)
 
         # Hierarchical RNN as the decoder – 2 RNNs stacked – (also use seq2seq for attention?)
-        self.conduct = self.conductor(self.z)
-        self.init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * self.state_size])
-        self.generated = self.decoder(self.conduct,self.init_state)
+        # self.conduct = self.conductor(self.z)
+        self.init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * 1024])
+        net_output, self.state = self.decoder(self.z,self.init_state)
 
         self.losses = tf.nn.softmax_cross_entropy_with_logits_v2(logits=net_output,labels=tf.reshape(self.x, [-1, self.output_size]))
         self.total_loss = tf.reduce_mean(self.losses)
@@ -50,10 +57,10 @@ class Music:
         self.lstm_b = tf.contrib.rnn.MultiRNNCell(self.lstm_cells_b,state_is_tuple=False)
         # Iteratively compute output of recurrent network
         outputs, (states_f, states_w) = tf.nn.bidirectional_dynamic_rnn(self.lstm_f, self.lstm_b, inputs=x, dtype=tf.float32)
-        self.bi_final_state = tf.concat([states_f, states_w], 1)
-        self.W_mu = tf.Variable(tf.random_normal((self.state_size, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
+        bi_final_state = tf.concat([states_f, states_w], 1)
+        self.W_mu = tf.Variable(tf.random_normal((16384, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
         self.b_mu = tf.Variable(tf.random_normal((self.latent_dim * 2,), stddev=0.01), dtype=tf.float32)
-        self.W_sig = tf.Variable(tf.random_normal((self.state_size, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
+        self.W_sig = tf.Variable(tf.random_normal((16384, self.latent_dim * 2), stddev=0.01), dtype=tf.float32)
         self.b_sig = tf.Variable(tf.random_normal((self.latent_dim * 2,), stddev=0.01), dtype=tf.float32)
         # params_mu = tf.matmul(tf.reshape(combined_output, [-1, self.state_size]), self.W_mu) + self.b_mu
         params_mu = tf.matmul(bi_final_state, self.W_mu) + self.b_mu
@@ -65,35 +72,42 @@ class Music:
 
         return mu, sigma
 
-    def conductor(self, z):
-        hidden_size = 1024
-        output_size = 512
-        conduct_init = tf.layers.dense(self.z, self.latent_dim, activation=tf.tanh)
-        # Conductor RNN - 2 layer 1024, 512 dims, vector c of lenght U (length of song), then output to shared fully-connected dense w/ tanh
-        init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * hidden_size])
-        lstm_cells = [tf.nn.rnn_cell.LSTMCell(hidden_size, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
-        lstm = tf.contrib.rnn.MultiRNNCell(lstm_cells,state_is_tuple=False)
-        outputs, new_state = tf.nn.dynamic_rnn(lstm, conduct_init, initial_state=init_state, dtype=tf.float32)
-        W_hy = tf.Variable(tf.random_normal((hidden_size, output_size),stddev=0.01),dtype=tf.float32)
-        b_y = tf.Variable(tf.random_normal((output_size,), stddev=0.01), dtype=tf.float32)
-        net_output = tf.matmul(tf.reshape(outputs, [-1, hidden_size]), W_hy) + b_y
-
-        final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], output_size)) # dont know if this line is supposed to be here
-        return self.final_outputs
+    # def conductor(self, z):
+    #     hidden_size = 1024
+    #     output_size = 512
+    #     conduct_init = tf.layers.dense(z, self.latent_dim, activation=tf.tanh)
+    #     # Conductor RNN - 2 layer 1024, 512 dims, vector c of lenght U (length of song), then output to shared fully-connected dense w/ tanh
+    #     init_state = tf.placeholder(tf.float32, [None, self.num_layers * 2 * hidden_size])
+    #     lstm_cells = [tf.nn.rnn_cell.LSTMCell(hidden_size, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
+    #     lstm = tf.contrib.rnn.MultiRNNCell(lstm_cells,state_is_tuple=False)
+    #     print(conduct_init.shape, z.shape)
+    #     # with tf.variable_scope('conductor'):
+    #     outputs, new_state = tf.nn.dynamic_rnn(lstm, tf.expand_dims(conduct_init, axis = 2), initial_state=init_state, dtype=tf.float32)
+    #     # outputs, new_state = tf.nn.static_rnn([lstm], conduct_init, initial_state=init_state, dtype=tf.float32)
+    #     W_hy = tf.Variable(tf.random_normal((hidden_size, output_size),stddev=0.01),dtype=tf.float32)
+    #     b_y = tf.Variable(tf.random_normal((output_size,), stddev=0.01), dtype=tf.float32)
+    #     net_output = tf.matmul(tf.reshape(outputs, [-1, hidden_size]), W_hy) + b_y
+    #
+    #     final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], output_size)) # dont know if this line is supposed to be here
+    #     return final_outputs
 
     def decoder(self, c, init_state):
         # Decoder RNN - 2 layer 1024 units per layer, output to 128 w/ softmax output layer, concat previous state like in normal rnn but also with vector c[n]
         # will output like how the basic rnn does, just the first ouput and state, run this portion autoregressively when evaluating.
-        conduct_init = tf.layers.dense(c, output_size, activation=tf.tanh)
+        conduct_init = tf.layers.dense(c, self.output_size, activation=tf.tanh)
+        conduct_init = tf.expand_dims(conduct_init, axis = 2)
         lstm_cells = [tf.nn.rnn_cell.LSTMCell(1024, forget_bias=1.0, state_is_tuple=False) for i in range(self.num_layers)]
+        # lstm_cells = tf.contrib.rnn.LSTMCell(1024, forget_bias=1.0, state_is_tuple=False)
         lstm = tf.contrib.rnn.MultiRNNCell(lstm_cells,state_is_tuple=False)
         # Iteratively compute output of recurrent network
+        # with tf.variable_scope('decoder'): # maybe just make it one layer
+            # outputs, self.new_state = tf.nn.dynamic_rnn(lstm, conduct_init, initial_state=init_state, dtype=tf.float32)
         outputs, self.new_state = tf.nn.dynamic_rnn(lstm, conduct_init, initial_state=init_state, dtype=tf.float32)
         W_hy = tf.Variable(tf.random_normal((1024, 128),stddev=0.01),dtype=tf.float32)
         b_y = tf.Variable(tf.random_normal((128,), stddev=0.01), dtype=tf.float32)
         net_output = tf.matmul(tf.reshape(outputs, [-1, 1024]), W_hy) + b_y
 
-        self.final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], 1024))
+        self.final_outputs = tf.reshape(tf.nn.softmax(net_output),(tf.shape(outputs)[0], tf.shape(outputs)[1], 128))
 
         return self.final_outputs, self.new_state #use these when regressively calling the decoder rnn
 
@@ -105,7 +119,7 @@ class Music:
     #     # init_value = np.zeros((self.batch_size, self.num_layers * 2 * self.state_size))
     #     return self.sess.run([self.total_loss, self.optimizer],{self.x: xbatch, self.y_truth: ybatch})
 
-    def train(self):
+    def train(self, xmat):
         self.training = True
         counter = 0
         # VALIDATION AND SCIPY DISPLAY FUNCTIONS COMMENTED OUT FOR NOW
@@ -130,10 +144,12 @@ class Music:
             for i in range(total_batch):
                 counter += 1
                 offset = (i * self.batch_size) % (self.n_samples)
-                batch_xs_input = np.array(next(x_iter)).reshape(self.batch_size, self.input_size)
-                _, gen_loss, lat_loss = self.sess.run((self.optimizer, self.generation_loss, self.latent_loss), feed_dict={self.images: batch_xs_input})
+                self.batch_xs_input = np.array(next(x_iter)).reshape(self.batch_size, SPLIT_LEN)
+                self.batch_xs_input = [self.one_hot(b) for b in self.batch_xs_input]
+                init_value = np.zeros((self.batch_size, self.num_layers * 2 * 1024))
+                _, gen_loss, tot_loss = self.sess.run((self.optimizer, self.losses, self.total_loss), feed_dict={self.x: self.batch_xs_input, self.init_state: init_value})
 
-            print("epoch %d: gen_loss %f lat_loss %f" % (epoch, np.mean(gen_loss), np.mean(lat_loss)))
+            print("epoch %d: gen_loss %f lat_loss %f" % (epoch, np.mean(gen_loss), np.mean(tot_loss)))
             # self.save(self.checkpoint_dir, counter)
             # generator_test = self.sess.run(self.generated, feed_dict={self.images: validator})
             # generator_test = generator_test.reshape(self.batch_size,28,28)
@@ -153,7 +169,7 @@ class Music:
 
     def load(self, checkpoint_dir):
         print(" [*] Reading checkpoints...")
-        model_dir = "%s_%s" % (self.batch_size, self.n_z)
+        model_dir = "%s_%s" % (self.batch_size, self.num_layers)
         checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
 
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
@@ -170,7 +186,7 @@ class Music:
 
     def save(self, checkpoint_dir, step):
         model_name = "vae.model"
-        model_dir = "%s_%s" % (self.batch_size, self.n_z)
+        model_dir = "%s_%s" % (self.batch_size, self.num_layers)
         checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
 
         if not os.path.exists(checkpoint_dir):
@@ -207,12 +223,20 @@ class Music:
                return
            yield chunk
 
+    def one_hot(self,b):
+        letter_vectors = []
+        for i in b:
+            result = np.zeros(128)
+            result[i] = 1
+            letter_vectors.append(result)
+        return letter_vectors
+
 test, train = data_io.test_train_sets_lpd5("./lpd_5_cleansed", track_name='Piano', split_len=SPLIT_LEN)
 
 def train_yielder():
     for t in train:
         mono = midi_proc.convert_to_mono(t)
-        print(mono.size)
+        # print(mono.size)
         yield mono
 
 train = list(itertools.islice(train_yielder(), training_size))
