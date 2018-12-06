@@ -139,9 +139,11 @@ class LSTM:
 		start_time = time.time()
 		while True:
 			for i in range(num_batches):
+				print(i)
 				x = all_training[i * self.batch_size : (i + 1) * self.batch_size]
 				y = x
 				loss, losses, prediction, _ = self.sess.run([self.total_loss, self.losses, self.logits, self.optimizer], feed_dict={self.x: x, self.y_truth: y})
+				print(loss)
 				cur_record = int(time.time() - start_time / RECORD_INTERVAL)
 				if cur_record > last_record:
 					print("Epoch: %d - Loss: %f" % (epoch, loss))
@@ -175,8 +177,8 @@ def process_song(song):
 model = LSTM()
 training_size = 64
 training, validation = data_io.test_train_sets_lpd5(ROOT_DIR)
-training = list(itertools.islice(training, 0, 512))
-validation = list(itertools.islice(validation, 0, 512))
+training = list(itertools.islice(training, 0, 1024))
+validation = list(itertools.islice(validation, 0, 1024))
 x = []
 for song in training:
 	for clip in process_song(song):
