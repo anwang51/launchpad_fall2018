@@ -160,3 +160,10 @@ def plots(vectors):
         plt.imshow(np.transpose(vector))
         plt.title(f"{index}")
         plt.show()
+
+def forever(songs):
+    while True:
+        for i, song in enumerate(songs):
+            print(f"Yo {i}")
+            if np.count_nonzero(song):
+                play_vector(song)
